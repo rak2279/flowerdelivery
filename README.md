@@ -146,8 +146,11 @@ intensive lv2 course
 
 
 ## 헥사고날 아키텍처 다이어그램 도출
-    
-![image](https://user-images.githubusercontent.com/80744199/117758512-2b1dad80-b25d-11eb-8ec2-e8a11de192de.png)
+꽃배달서비스 - 헥사고날 아키텍처
+
+![image](https://user-images.githubusercontent.com/80744199/118609005-49ebe900-b7f5-11eb-98d0-3871a043d721.png)
+
+
 
 
 
