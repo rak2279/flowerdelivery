@@ -124,22 +124,21 @@ intensive lv2 course
 => 꽃배달 서비스 http://www.msaez.io/#/storming/5nRSKjrx87XLm3BPJHqFNcoc9ZT2/mine/89e807d4cea32297228749710093e35c
 
 ## 전체
-![image](https://user-images.githubusercontent.com/80744199/117628815-7f208780-b1b4-11eb-81cf-ed0b2c5ed766.png)
+![image](https://user-images.githubusercontent.com/80744199/118610060-591f6680-b7f6-11eb-92d2-247747f6d08f.png)
+
+
 
 ## 주문
-![image](https://user-images.githubusercontent.com/80744199/117628891-92335780-b1b4-11eb-8d72-5b42a81dbb77.png)
+![image](https://user-images.githubusercontent.com/80744199/118610157-6f2d2700-b7f6-11eb-9325-2cb570182359.png)
 
 ## 결제
-![image](https://user-images.githubusercontent.com/80744199/117628918-98c1cf00-b1b4-11eb-859f-cfb0fefa3047.png)
+![image](https://user-images.githubusercontent.com/80744199/118610178-748a7180-b7f6-11eb-8618-cc3bf12a07df.png)
 
 ## 주문관리
-![image](https://user-images.githubusercontent.com/80744199/117628952-a37c6400-b1b4-11eb-9a4d-7a603bfa8eee.png)
+![image](https://user-images.githubusercontent.com/80744199/118610231-81a76080-b7f6-11eb-9067-8bf74b05e591.png)
 
 ## 배송
-![image](https://user-images.githubusercontent.com/80744199/117629016-b2fbad00-b1b4-11eb-9c59-b5775b20802c.png)
-
-## 카톡알림
-![image](https://user-images.githubusercontent.com/80744199/117629047-ba22bb00-b1b4-11eb-9393-23372c21e6f3.png)
+![image](https://user-images.githubusercontent.com/80744199/118610263-8b30c880-b7f6-11eb-8434-5a7bea500fd0.png)
 
 
 
