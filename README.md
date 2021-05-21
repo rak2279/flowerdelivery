@@ -155,28 +155,33 @@ intensive lv2 course
 
 # 구현:
 
-분석/설계 단계에서 도출된 헥사고날 아키텍처에 따라, 각 BC별로 대변되는 마이크로 서비스들을 스프링부트와 파이선으로 구현하였다. 구현한 각 서비스를 로컬에서 실행하는 방법은 아래와 같다 (각자의 포트넘버는 8081 ~ 808n 이다)
+분석/설계 단계에서 도출된 헥사고날 아키텍처에 따라, 각 바운더리 컨텍스트 별로 표현된 서비스를 스트링 부트로 구현함 
 
+적용 아키텍쳐는 아래와 같으며
+![image](https://user-images.githubusercontent.com/80744199/119110084-bae10a00-ba5c-11eb-8fb4-ec4ef68e4421.png)
+
+각 서비스별 구동커맨드는 아래와 같음
 ```
 cd gateway
 mvn spring-boot:run 
 포트 : 8088
 
-cd delivery
-mvn spring-boot:run
-포트 : 8084 
-
 cd order 
 mvn spring-boot:run 
 포트 : 8081 
+
+cd payment
+mvn spring-boot:run   
+포트 : 8082
 
 cd ordermanagement
 mvn spring-boot:run  
 포트 : 8083
 
-cd payment
-mvn spring-boot:run   
-포트 : 8082
+cd delivery
+mvn spring-boot:run
+포트 : 8084 
+
 
 ```
 
