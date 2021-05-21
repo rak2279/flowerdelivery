@@ -158,6 +158,7 @@ intensive lv2 course
 분석/설계 단계에서 도출된 헥사고날 아키텍처에 따라, 각 바운더리 컨텍스트 별로 표현된 서비스를 스트링 부트로 구현함 
 
 적용 아키텍쳐는 아래와 같으며
+
 ![image](https://user-images.githubusercontent.com/80744199/119110084-bae10a00-ba5c-11eb-8fb4-ec4ef68e4421.png)
 
 각 서비스별 구동커맨드는 아래와 같음
