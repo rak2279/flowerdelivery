@@ -160,18 +160,24 @@ intensive lv2 course
 ```
 cd gateway
 mvn spring-boot:run 
+포트 : 8088
 
 cd delivery
 mvn spring-boot:run
+포트 : 8084 
 
-cd order
+cd order 
 mvn spring-boot:run 
+포트 : 8081 
 
 cd ordermanagement
 mvn spring-boot:run  
+포트 : 8083
 
 cd payment
 mvn spring-boot:run   
+포트 : 8082
+
 ```
 
 ## DDD 의 적용
