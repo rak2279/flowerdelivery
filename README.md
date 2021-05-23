@@ -279,18 +279,18 @@ PgAdmin을 통해 접속가능 확인
 delivery 서비스의 ostgresql dependency 추가 
 
 기존 h2 
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>runtime</scope>
-		</dependency>
+#		<dependency>
+#			<groupId>com.h2database</groupId>
+#			<artifactId>h2</artifactId>
+#			<scope>runtime</scope>
+#		</dependency>
 
 변경 
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>			
-		</dependency>
+#		<dependency>
+#			<groupId>org.postgresql</groupId>
+#			<artifactId>postgresql</artifactId>
+#			<scope>runtime</scope>			
+#		</dependency>
 
 
 delivery 서비스의 application.yml 수정 
