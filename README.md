@@ -1,7 +1,7 @@
 # flowerdelivery
-intensive lv2 course 
+intensive lv2 course  group 3
 
-# 꽃 배달 서비스 ( 조별 리포트 )
+# 꽃 배달 서비스 ( 3조 리포트 )
 ![image](https://user-images.githubusercontent.com/80744199/117618717-52b33e00-b1a9-11eb-917b-6dafcedd86e8.png)
 
 # Table of contents
@@ -11,11 +11,12 @@ intensive lv2 course
   - [체크포인트](#체크포인트)
   - [분석/설계](#분석설계)
   - [구현:](#구현)
-    - [DDD 의 적용](#ddd-의-적용)
-    - [폴리글랏 퍼시스턴스](#폴리글랏-퍼시스턴스)
-    - [폴리글랏 프로그래밍](#폴리글랏-프로그래밍)
+    - [DDD 의 적용](#ddd-의-적용)    
     - [동기식 호출 과 Fallback 처리](#동기식-호출-과-Fallback-처리)
     - [비동기식 호출 과 Eventual Consistency](#비동기식-호출-과-Eventual-Consistency)
+    - [폴리글랏 퍼시스턴스](#폴리글랏-퍼시스턴스)
+    - [폴리글랏 프로그래밍](#폴리글랏-프로그래밍)
+    - [API게이트웨이](#API게이트웨이)
   - [운영](#운영)
     - [CI/CD 설정](#cicd설정)
     - [동기식 호출 / 서킷 브레이킹 / 장애격리](#동기식-호출-서킷-브레이킹-장애격리)
@@ -188,24 +189,52 @@ mvn spring-boot:run
 
 ## DDD 의 적용
 
-- 각 서비스내에 도출된 핵심 Aggregate Root 객체를 Entity 로 선언하였다: (예시는 pay 마이크로 서비스). 이때 가능한 현업에서 사용하는 언어 (유비쿼터스 랭귀지)를 그대로 사용하려고 노력했다. 하지만, 일부 구현에 있어서 영문이 아닌 경우는 실행이 불가능한 경우가 있기 때문에 계속 사용할 방법은 아닌것 같다. (Maven pom.xml, Kafka의 topic id, FeignClient 의 서비스 id 등은 한글로 식별자를 사용하는 경우 오류가 발생하는 것을 확인하였다)
+- Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 데이터 접근 어댑터를 개발하였는가
 
+MSA 모델링 도구 ( MSA Easy .io )를 사용하여 도출된 핵심 어그리게이트를 Entity로 선언하였다. 
+=> 주문(order), 결제(payment), 주문관리(ordermanagement), 배송(delivery) 
+
+아래 코드는 주문 Entity에 대한 구현내용이다. 
 ```
-package fooddelivery;
+package flowerdelivery;
 
 import javax.persistence.*;
 import org.springframework.beans.BeanUtils;
-import java.util.List;
 
 @Entity
-@Table(name="결제이력_table")
-public class 결제이력 {
+@Table(name="Order_table")
+public class Order {
 
     @Id
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
-    private String orderId;
-    private Double 금액;
+    private String itemName;
+    private Integer qty;
+    private Long itemPrice;
+    private String storeName;
+    private String userName;
+
+    @PostPersist
+    public void onPostPersist(){
+        Ordered ordered = new Ordered();
+        BeanUtils.copyProperties(this, ordered);
+        ordered.publishAfterCommit();
+
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
+
+        flowerdelivery.external.Payment payment = new flowerdelivery.external.Payment();
+        // mappings goes here
+        OrderApplication.applicationContext.getBean(flowerdelivery.external.PaymentService.class)
+            .pay(payment);
+    }
+
+    @PreRemove
+    public void onPreRemove(){
+        OrderCancelled orderCancelled = new OrderCancelled();
+        BeanUtils.copyProperties(this, orderCancelled);
+        orderCancelled.publishAfterCommit();
+    }
 
     public Long getId() {
         return id;
@@ -214,134 +243,145 @@ public class 결제이력 {
     public void setId(Long id) {
         this.id = id;
     }
-    public String getOrderId() {
-        return orderId;
+    public String getItemName() {
+        return itemName;
     }
 
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
+    public void setItemName(String itemName) {
+        this.itemName = itemName;
     }
-    public Double get금액() {
-        return 금액;
-    }
-
-    public void set금액(Double 금액) {
-        this.금액 = 금액;
+    public Integer getQty() {
+        return qty;
     }
 
+    public void setQty(Integer qty) {
+        this.qty = qty;
+    }
+    public Long getItemPrice() {
+        return itemPrice;
+    }
+
+    public void setItemPrice(Long itemPrice) {
+        this.itemPrice = itemPrice;
+    }
+    public String getStoreName() {
+        return storeName;
+    }
+
+    public void setStoreName(String storeName) {
+        this.storeName = storeName;
+    }
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
 }
+```
+spring Data REST 의 RestRepository 를 적용하여 JPA를 통해 별도 처리 없이 다양한 데이터 소스 유형을 활용가능하도록 하였으며,
+RDB 설정에 맞도록 Order Entity에 @Table, @Id 어노테이션을 표시하였다.
 
+OrderReository.java 구현 내용
 ```
-- Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 다양한 데이터소스 유형 (RDB or NoSQL) 에 대한 별도의 처리가 없도록 데이터 접근 어댑터를 자동 생성하기 위하여 Spring Data REST 의 RestRepository 를 적용하였다
-```
-package fooddelivery;
+package flowerdelivery;
 
 import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 
-public interface 결제이력Repository extends PagingAndSortingRepository<결제이력, Long>{
+@RepositoryRestResource(collectionResourceRel="orders", path="orders")
+public interface OrderRepository extends PagingAndSortingRepository<Order, Long>{
 }
 ```
+
+Order.java 
+```
+
+@Entity
+@Table(name="Order_table")
+public class Order {
+
+    @Id
+    @GeneratedValue(strategy=GenerationType.AUTO)
+    private Long id;
+
+```
+
+- [헥사고날 아키텍처] REST Inbound adaptor 이외에 gRPC 등의 Inbound Adaptor 를 추가함에 있어서 도메인 모델의 손상을 주지 않고 새로운 프로토콜에 기존 구현체를 적응시킬 수 있는가?
+
+"미구현"
+
+
+- 분석단계에서의 유비쿼터스 랭귀지 (업무현장에서 쓰는 용어) 를 사용하여 소스코드가 서술되었는가?
+
+업무현장,현업에사 사용하는 용어(유비쿼터스 랭귀지)를 활용하여 모델링하였으며
+, 한글사용시의 구동오류Case를 방지하기 위해 한글을 영문화 하여 구현하였다. 
+(Maven pom.xml, Kafka의 topic id, FeignClient 의 서비스 id 등은 한글로 식별자를 사용하는 경우 오류가 발생함)
+
+
 - 적용 후 REST API 의 테스트
 ```
-# app 서비스의 주문처리
-http localhost:8081/orders item="통닭"
+주문 테스트
+C:\workspace\flowerdelivery>http POST http://localhost:8088/orders storeName=KJSHOP itemName="장미 한바구니" qty=1 itemPrice=50000 userName=LKJ "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg1OTQ1NywiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6ImlGZGswclgrR21TUVErN2xNS3ZWVGhtZFUxOD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.DdilwqGMzcVOvWg69oDcqteM3tk1W2laMDc_sdz8YHJcfD-ZIJG5N4w_pGbxpypTZSz5YlAExJiJpUYtq3dPHnWTC0L2H2BRdredFO62no43vA3QoPDtiXgdOf7BqOzpMCQs1mMY4NqteoaKiD8aE-jG64-hOPSRx_VxZJ1MKezH9g-bA89Ptqaw0Rkuw9j5LuHqTVh0NANG58hfg0HAN3Y73RWnvBHPa2jcAGJL8lu1VarIujeatBHEOsXWVBBydlft2zol3vBvZBaGRJfW7Jt8vCyjqEfIShmQf0WGvXWwlX8XH1Q77JL617_Lxzjz-3uiDsLg-kN5U2TaoVUijQ"
+HTTP/1.1 201 Created
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Type: application/json;charset=UTF-8
+Date: Sun, 23 May 2021 14:31:12 GMT
+Expires: 0
+Location: http://localhost:8081/orders/4
+Pragma: no-cache
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+transfer-encoding: chunked
 
-# store 서비스의 배달처리
-http localhost:8083/주문처리s orderId=1
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/4"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/4"
+        }
+    },
+    "itemName": "장미 한바구니",
+    "itemPrice": 50000,
+    "qty": 1,
+    "storeName": "KJSHOP",
+    "userName": "LKJ"
+}
 
-# 주문 상태 확인
-http localhost:8081/orders/1
+주문내역 조회 
+C:\workspace\flowerdelivery>http GET localhost:8088/orders/4 "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg1OTQ1NywiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6ImlGZGswclgrR21TUVErN2xNS3ZWVGhtZFUxOD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.DdilwqGMzcVOvWg69oDcqteM3tk1W2laMDc_sdz8YHJcfD-ZIJG5N4w_pGbxpypTZSz5YlAExJiJpUYtq3dPHnWTC0L2H2BRdredFO62no43vA3QoPDtiXgdOf7BqOzpMCQs1mMY4NqteoaKiD8aE-jG64-hOPSRx_VxZJ1MKezH9g-bA89Ptqaw0Rkuw9j5LuHqTVh0NANG58hfg0HAN3Y73RWnvBHPa2jcAGJL8lu1VarIujeatBHEOsXWVBBydlft2zol3vBvZBaGRJfW7Jt8vCyjqEfIShmQf0WGvXWwlX8XH1Q77JL617_Lxzjz-3uiDsLg-kN5U2TaoVUijQ"
+HTTP/1.1 200 OK
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Type: application/hal+json;charset=UTF-8
+Date: Sun, 23 May 2021 14:32:16 GMT
+Expires: 0
+Pragma: no-cache
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+transfer-encoding: chunked
 
-```
-
-
-## 폴리글랏 퍼시스턴스
-
-배송 서비스(delivery)는 실시간 배송위치 추적 등 추후 지도(GIS) 기반 서비스의 확장까지 고려하여 데이터베이스를 선정하려고 한다. 
-postgres는 공간(Spatial)부분에 상당한 강점과 다양한 레퍼런스가 있어서 적합하다고 판단되어  배송(delivery)서비스의 DB는 자동생성된 DB설정인 H2에서 postgreSQL로 변경하려고 한다. 
-
-먼저, AWS에 postgreSQL 을 프리티어로 생성한다. 
-
-AWS > RDS > 데이터베이스 생성
-
-![image](https://user-images.githubusercontent.com/80744199/119250376-ad518e80-bbda-11eb-852e-6f64e76dfdad.png)
-
-생성된 모습 
-
-![image](https://user-images.githubusercontent.com/80744199/119250409-e12cb400-bbda-11eb-88c7-58725f0b603e.png)
-
-접속 허용을 위해 보안그룹을 추가하고,  인바운드 규칙에 모든TCP를 허용한다. 
-
-![image](https://user-images.githubusercontent.com/80744199/119250559-cdce1880-bbdb-11eb-8b23-fe0a668c524d.png)
-
-PgAdmin을 통해 접속가능 확인
-
-![image](https://user-images.githubusercontent.com/80744199/119250566-e0485200-bbdb-11eb-9ca5-365e3dad00a0.png)
-
-
-delivery 서비스의 postgresql dependency 추가 
-
-기존 h2 
-
-![image](https://user-images.githubusercontent.com/80744199/119251064-5e5a2800-bbdf-11eb-8b56-27c8fc3e4863.png)
-
-변경 postgreSQL
-
-![image](https://user-images.githubusercontent.com/80744199/119251052-50a4a280-bbdf-11eb-8e20-e5a7ada61ff0.png)
-
-
-delivery 서비스의 application.yml 수정 
-
-기존 설정  (H2 DB) 
-
-![image](https://user-images.githubusercontent.com/80744199/119251098-9f523c80-bbdf-11eb-9215-da643b6bafc3.png)
- 
-변경 설정 ( postgreSQL DB ) 
-
-![image](https://user-images.githubusercontent.com/80744199/119251089-93667a80-bbdf-11eb-8327-aa8d776f2cbd.png)
-
- 
-
-RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
-
-mvn spring-boot:run 으로 구동하여 payment 관련 테이블이 postgres에 생성된 모습
-
-![image](https://user-images.githubusercontent.com/80744199/119250994-de33c280-bbde-11eb-89af-82f634bde6a7.png)
-
-
-
-## 폴리글랏 프로그래밍
-
-고객관리 서비스(customer)의 시나리오인 주문상태, 배달상태 변경에 따라 고객에게 카톡메시지 보내는 기능의 구현 파트는 해당 팀이 python 을 이용하여 구현하기로 하였다. 해당 파이썬 구현체는 각 이벤트를 수신하여 처리하는 Kafka consumer 로 구현되었고 코드는 다음과 같다:
-```
-from flask import Flask
-from redis import Redis, RedisError
-from kafka import KafkaConsumer
-import os
-import socket
-
-
-# To consume latest messages and auto-commit offsets
-consumer = KafkaConsumer('fooddelivery',
-                         group_id='',
-                         bootstrap_servers=['localhost:9092'])
-for message in consumer:
-    print ("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
-                                          message.offset, message.key,
-                                          message.value))
-
-    # 카톡호출 API
-```
-
-파이선 애플리케이션을 컴파일하고 실행하기 위한 도커파일은 아래와 같다 (운영단계에서 할일인가? 아니다 여기 까지가 개발자가 할일이다. Immutable Image):
-```
-FROM python:2.7-slim
-WORKDIR /app
-ADD . /app
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
-ENV NAME World
-EXPOSE 8090
-CMD ["python", "policy-handler.py"]
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/4"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/4"
+        }
+    },
+    "itemName": "장미 한바구니",
+    "itemPrice": 50000,
+    "qty": 1,
+    "storeName": "KJSHOP",
+    "userName": "LKJ"
+}
 ```
 
 
@@ -488,6 +528,299 @@ mvn spring-boot:run
 #주문상태 확인
 http localhost:8080/orders     # 모든 주문의 상태가 "배송됨"으로 확인
 ```
+
+
+## 폴리글랏 퍼시스턴스
+
+배송 서비스(delivery)는 실시간 배송위치 추적 등 추후 지도(GIS) 기반 서비스의 확장까지 고려하여 데이터베이스를 선정하려고 한다. 
+postgres는 공간(Spatial)부분에 상당한 강점과 다양한 레퍼런스가 있어서 적합하다고 판단되어  배송(delivery)서비스의 DB는 자동생성된 DB설정인 H2에서 postgreSQL로 변경하려고 한다. 
+
+먼저, AWS에 postgreSQL 을 프리티어로 생성한다. 
+
+AWS > RDS > 데이터베이스 생성
+
+![image](https://user-images.githubusercontent.com/80744199/119250376-ad518e80-bbda-11eb-852e-6f64e76dfdad.png)
+
+생성된 모습 
+
+![image](https://user-images.githubusercontent.com/80744199/119250409-e12cb400-bbda-11eb-88c7-58725f0b603e.png)
+
+접속 허용을 위해 보안그룹을 추가하고,  인바운드 규칙에 모든TCP를 허용한다. 
+
+![image](https://user-images.githubusercontent.com/80744199/119250559-cdce1880-bbdb-11eb-8b23-fe0a668c524d.png)
+
+PgAdmin을 통해 접속가능 확인
+
+![image](https://user-images.githubusercontent.com/80744199/119250566-e0485200-bbdb-11eb-9ca5-365e3dad00a0.png)
+
+
+delivery 서비스의 postgresql dependency 추가 
+
+기존 h2 
+
+![image](https://user-images.githubusercontent.com/80744199/119251064-5e5a2800-bbdf-11eb-8b56-27c8fc3e4863.png)
+
+변경 postgreSQL
+
+![image](https://user-images.githubusercontent.com/80744199/119251052-50a4a280-bbdf-11eb-8e20-e5a7ada61ff0.png)
+
+
+delivery 서비스의 application.yml 수정 
+
+기존 설정  (H2 DB) 
+
+![image](https://user-images.githubusercontent.com/80744199/119251098-9f523c80-bbdf-11eb-9215-da643b6bafc3.png)
+ 
+변경 설정 ( postgreSQL DB ) 
+
+![image](https://user-images.githubusercontent.com/80744199/119251089-93667a80-bbdf-11eb-8327-aa8d776f2cbd.png)
+
+ 
+
+RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
+
+mvn spring-boot:run 으로 구동하여 배송서비스(delivery) 관련 테이블이 postgres에 생성된 모습
+
+![image](https://user-images.githubusercontent.com/80744199/119254017-f7dd0600-bbee-11eb-8817-83eda34bcf13.png)
+
+
+
+## 폴리글랏 프로그래밍
+
+"미구현"
+
+
+## API게이트웨이
+
+- API GW를 통하여 마이크로 서비스들의 집입점을 통일할 수 있는가?
+
+MSAEZ 모델링 도구를 통해 자동생성된 gateway 를 구동하고, spring.cloud.gateway.routes 정보를 설정하여 마이크로 서비스의 진입점을 통일한다. 
+
+gateway 서비스의 application.yml 파일 
+
+```
+  cloud:
+    gateway:
+      routes:
+        - id: order
+          uri: http://localhost:8081
+          predicates:
+            - Path=/orders/**, /menus/**/myPages/**
+        - id: payment
+          uri: http://localhost:8082
+          predicates:
+            - Path=/payments/** 
+        - id: ordermanagement
+          uri: http://localhost:8083
+          predicates:
+            - Path=/ordermanagements/**, /orderStatuses/**
+        - id: delivery
+          uri: http://localhost:8084
+          predicates:
+            - Path=/deliveries/**, /deliverystatuses/**
+```
+
+게이트웨이 포트를 활용하여 각 서비스로 접근 가능한지 확인 
+
+게이트웨이포트 8088 을 통해서    8081포트에 서비스하고 있는 주문(Order)서비스를 접근함 
+
+```
+C:\workspace\flowerdelivery>http GET localhost:8088/orders/1 "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg1OTQ1NywiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6ImlGZGswclgrR21TUVErN2xNS3ZWVGhtZFUxOD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.DdilwqGMzcVOvWg69oDcqteM3tk1W2laMDc_sdz8YHJcfD-ZIJG5N4w_pGbxpypTZSz5YlAExJiJpUYtq3dPHnWTC0L2H2BRdredFO62no43vA3QoPDtiXgdOf7BqOzpMCQs1mMY4NqteoaKiD8aE-jG64-hOPSRx_VxZJ1MKezH9g-bA89Ptqaw0Rkuw9j5LuHqTVh0NANG58hfg0HAN3Y73RWnvBHPa2jcAGJL8lu1VarIujeatBHEOsXWVBBydlft2zol3vBvZBaGRJfW7Jt8vCyjqEfIShmQf0WGvXWwlX8XH1Q77JL617_Lxzjz-3uiDsLg-kN5U2TaoVUijQ"
+HTTP/1.1 200 OK
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Type: application/hal+json;charset=UTF-8
+Date: Sun, 23 May 2021 14:06:59 GMT
+Expires: 0
+Pragma: no-cache
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/1"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/1"
+        }
+    },
+    "itemName": "cup001",
+    "itemPrice": 1000,
+    "qty": 10,
+    "storeName": "KJSHOP",
+    "userName": "LKJ"
+}
+```
+
+- 게이트웨이와 인증서버(OAuth), JWT 토큰 인증을 통하여 마이크로서비스들을 보호할 수 있는가?
+
+먼저 게이트웨이에서 JWT 인증을 하기 위에  Spring Security 관련 디펜던시를 추가한다. 
+gateway 서비스의 pom.xml 파일에 내용 추가
+```
+<!-- Add spring security -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-client</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-jose</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-resource-server</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security.oauth.boot</groupId>
+			<artifactId>spring-security-oauth2-autoconfigure</artifactId>
+		</dependency>
+```
+
+application.yml 파일에  spring security jwt 설정을 추가한다. 
+(인증(OAUTH)서비스는 8090 포트로 서비스 예정이다.)
+```
+spring:
+  profiles: default
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8090/.well-known/jwks.json
+```
+
+JWT ResourceServerCofiguration.java 추가 
+```
+package com.example;
+
+import org.springframework.cloud.gateway.config.GlobalCorsProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+
+@Configuration
+@EnableWebFluxSecurity
+public class ResourceServerConfiguration {
+
+    @Bean
+    SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) throws Exception {
+
+        http
+                .cors().and()
+                .csrf().disable()
+                .authorizeExchange()
+                //.pathMatchers("/orders/**","/deliveries/**","/oauth/**","/login/**","/payments/**","/ordermanagement/**").permitAll()
+                .pathMatchers("/oauth/**").permitAll()
+                .anyExchange().authenticated()
+                .and()
+                .oauth2ResourceServer()
+                .jwt()
+                ;
+
+        return http.build();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(
+            GlobalCorsProperties globalCorsProperties) {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        globalCorsProperties.getCorsConfigurations()
+                .forEach(source::registerCorsConfiguration);
+        return source;
+    }
+}
+```
+event-storming/oauth 서비스를 flowerdelivery 프로젝트에 추가한다. 
+
+![image](https://user-images.githubusercontent.com/80744199/119264224-312c6a80-bc1d-11eb-92e3-fbb0eadc5cb0.png)
+
+인증(oauth)서비스를 구동시킨다.
+c:\workspace\flowdelivery\oauth> mvn spring-boot:run 
+
+게이트웨이 내 Spring Security 설정에 따라서 인증토큰이 없는 서비스 호출은 인증되지 않은 호출로 오류가 발생한다. 
+```
+C:\workspace\flowerdelivery>http GET http://localhost:8088/orders/1
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Expires: 0
+Pragma: no-cache
+Referrer-Policy: no-referrer
+WWW-Authenticate: Bearer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+content-length: 0
+```
+
+인증을 위해 client_credintials 방식으로  토큰을 요청한다. 
+```
+C:\workspace\flowerdelivery>http --form POST localhost:8090/oauth/token "Authorization: Basic dWVuZ2luZS1jbGllbnQ6dWVuZ2luZS1zZWNyZXQ=" grant_type=client_credentials
+HTTP/1.1 200 
+Cache-Control: no-store
+Connection: keep-alive
+Content-Type: application/json;charset=UTF-8
+Date: Sun, 23 May 2021 14:25:55 GMT
+Keep-Alive: timeout=60
+Pragma: no-cache
+Transfer-Encoding: chunked
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+
+{
+    "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg2NjM1NSwiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6Ikt0RUhTSk5xVVVtSzJYSU92bVpQanYydVJmMD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.Iah6pc7kwSY4uyjy40AJlt43vp4sLoDfnjaxhK4zr-2r30BOaqPasU8DOMWrl99BM8AlVmwwesuaxKdcJOGc89R_TrmqHbWAe3_enHXlTr3JsiXzQWzyNTTtgxNFjoP0Tn-wtUg_shirmn8UTR9DQN5N1uJk_3TswQVTPoqz-11SDepIvkT5fbdNqXAJ7rcpJXJzKv89Cr6YagU3Wp-KqhtA0-QSi3Z_qBaWzQlYjta1CqKVZE9xciCWssEFtVOpRr7Tv2vuaIFHDBE_hd7fg3wXRJ55XYl0kkaLtHqN2RW4ZqbsxAT-HoW4lJFO8jRtEaElQclzZqcJ5mbLcssiSw",
+```
+
+얻은 위 access_token 정보를 활용하여 서비스를 호출 시 정상적으로 동작한다. 
+
+```
+C:\workspace\flowerdelivery>http GET localhost:8088/orders/1 "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg1OTQ1NywiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6ImlGZGswclgrR21TUVErN2xNS3ZWVGhtZFUxOD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.DdilwqGMzcVOvWg69oDcqteM3tk1W2laMDc_sdz8YHJcfD-ZIJG5N4w_pGbxpypTZSz5YlAExJiJpUYtq3dPHnWTC0L2H2BRdredFO62no43vA3QoPDtiXgdOf7BqOzpMCQs1mMY4NqteoaKiD8aE-jG64-hOPSRx_VxZJ1MKezH9g-bA89Ptqaw0Rkuw9j5LuHqTVh0NANG58hfg0HAN3Y73RWnvBHPa2jcAGJL8lu1VarIujeatBHEOsXWVBBydlft2zol3vBvZBaGRJfW7Jt8vCyjqEfIShmQf0WGvXWwlX8XH1Q77JL617_Lxzjz-3uiDsLg-kN5U2TaoVUijQ"
+HTTP/1.1 200 OK
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Type: application/hal+json;charset=UTF-8
+Date: Sun, 23 May 2021 14:27:42 GMT
+Expires: 0
+Pragma: no-cache
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/1"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/1"
+        }
+    },
+    "itemName": "cup001",
+    "itemPrice": 1000,
+    "qty": 10,
+    "storeName": "KJSHOP",
+    "userName": "LKJ"
+}
+```
+
+
+
+
 
 
 # 운영
