@@ -4,11 +4,22 @@ server:
 
 spring:
   profiles: default
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://kjworlddb01.caayby7upwt3.ap-northeast-2.rds.amazonaws.com:25432/postgres
+    username: postgres
+    password: rlwjd25
+
   jpa:
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    generate-ddl: true
     properties:
       hibernate:
         show_sql: true
         format_sql: true
+        ddl-auto: update
   cloud:
     stream:
       kafka:
