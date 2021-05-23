@@ -276,57 +276,26 @@ PgAdmin을 통해 접속가능 확인
 ![image](https://user-images.githubusercontent.com/80744199/119250566-e0485200-bbdb-11eb-9ca5-365e3dad00a0.png)
 
 
-delivery 서비스의 ostgresql dependency 추가 
+delivery 서비스의 postgresql dependency 추가 
 
 기존 h2 
-#		<dependency>
-#			<groupId>com.h2database</groupId>
-#			<artifactId>h2</artifactId>
-#			<scope>runtime</scope>
-#		</dependency>
+![image](https://user-images.githubusercontent.com/80744199/119251064-5e5a2800-bbdf-11eb-8b56-27c8fc3e4863.png)
 
-변경 
-#		<dependency>
-#			<groupId>org.postgresql</groupId>
-#			<artifactId>postgresql</artifactId>
-#			<scope>runtime</scope>			
-#		</dependency>
+변경 postgreSQL
+![image](https://user-images.githubusercontent.com/80744199/119251052-50a4a280-bbdf-11eb-8e20-e5a7ada61ff0.png)
 
 
 delivery 서비스의 application.yml 수정 
 
 기존 설정  (H2 DB) 
-spring:
-  profiles: default
-  jpa:
-    properties:
-      hibernate:
-        show_sql: true
-        format_sql: true
+![image](https://user-images.githubusercontent.com/80744199/119251098-9f523c80-bbdf-11eb-9215-da643b6bafc3.png)
  
 변경 설정 ( postgreSQL DB ) 
-spring:
-  profiles: default
+![image](https://user-images.githubusercontent.com/80744199/119251089-93667a80-bbdf-11eb-8327-aa8d776f2cbd.png)
 
-  datasource:
-    driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://kjworlddb01 엑세스 포인트 : 포트 
-    username: #유저
-    password: #비밀번호
-
-  jpa:
-    database: postgresql
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
-    generate-ddl: true
-    properties:
-      hibernate:
-        show_sql: true
-        format_sql: true
-        ddl-auto: update 
  
 
 RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
-
 
 mvn spring-boot:run 으로 구동하여 payment 관련 테이블이 postgres에 생성된 모습
 ![image](https://user-images.githubusercontent.com/80744199/119250994-de33c280-bbde-11eb-89af-82f634bde6a7.png)
