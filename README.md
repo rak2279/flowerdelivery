@@ -11,11 +11,12 @@ intensive lv2 course  group 3
   - [체크포인트](#체크포인트)
   - [분석/설계](#분석설계)
   - [구현:](#구현)
-    - [DDD 의 적용](#ddd-의-적용)
-    - [폴리글랏 퍼시스턴스](#폴리글랏-퍼시스턴스)
-    - [폴리글랏 프로그래밍](#폴리글랏-프로그래밍)
+    - [DDD 의 적용](#ddd-의-적용)    
     - [동기식 호출 과 Fallback 처리](#동기식-호출-과-Fallback-처리)
     - [비동기식 호출 과 Eventual Consistency](#비동기식-호출-과-Eventual-Consistency)
+    - [폴리글랏 퍼시스턴스](#폴리글랏-퍼시스턴스)
+    - [폴리글랏 프로그래밍](#폴리글랏-프로그래밍)
+    - [API게이트웨이](#API게이트웨이)
   - [운영](#운영)
     - [CI/CD 설정](#cicd설정)
     - [동기식 호출 / 서킷 브레이킹 / 장애격리](#동기식-호출-서킷-브레이킹-장애격리)
@@ -332,96 +333,6 @@ http localhost:8081/orders/1
 ```
 
 
-## 폴리글랏 퍼시스턴스
-
-배송 서비스(delivery)는 실시간 배송위치 추적 등 추후 지도(GIS) 기반 서비스의 확장까지 고려하여 데이터베이스를 선정하려고 한다. 
-postgres는 공간(Spatial)부분에 상당한 강점과 다양한 레퍼런스가 있어서 적합하다고 판단되어  배송(delivery)서비스의 DB는 자동생성된 DB설정인 H2에서 postgreSQL로 변경하려고 한다. 
-
-먼저, AWS에 postgreSQL 을 프리티어로 생성한다. 
-
-AWS > RDS > 데이터베이스 생성
-
-![image](https://user-images.githubusercontent.com/80744199/119250376-ad518e80-bbda-11eb-852e-6f64e76dfdad.png)
-
-생성된 모습 
-
-![image](https://user-images.githubusercontent.com/80744199/119250409-e12cb400-bbda-11eb-88c7-58725f0b603e.png)
-
-접속 허용을 위해 보안그룹을 추가하고,  인바운드 규칙에 모든TCP를 허용한다. 
-
-![image](https://user-images.githubusercontent.com/80744199/119250559-cdce1880-bbdb-11eb-8b23-fe0a668c524d.png)
-
-PgAdmin을 통해 접속가능 확인
-
-![image](https://user-images.githubusercontent.com/80744199/119250566-e0485200-bbdb-11eb-9ca5-365e3dad00a0.png)
-
-
-delivery 서비스의 postgresql dependency 추가 
-
-기존 h2 
-
-![image](https://user-images.githubusercontent.com/80744199/119251064-5e5a2800-bbdf-11eb-8b56-27c8fc3e4863.png)
-
-변경 postgreSQL
-
-![image](https://user-images.githubusercontent.com/80744199/119251052-50a4a280-bbdf-11eb-8e20-e5a7ada61ff0.png)
-
-
-delivery 서비스의 application.yml 수정 
-
-기존 설정  (H2 DB) 
-
-![image](https://user-images.githubusercontent.com/80744199/119251098-9f523c80-bbdf-11eb-9215-da643b6bafc3.png)
- 
-변경 설정 ( postgreSQL DB ) 
-
-![image](https://user-images.githubusercontent.com/80744199/119251089-93667a80-bbdf-11eb-8327-aa8d776f2cbd.png)
-
- 
-
-RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
-
-mvn spring-boot:run 으로 구동하여 배송서비스(delivery) 관련 테이블이 postgres에 생성된 모습
-
-![image](https://user-images.githubusercontent.com/80744199/119254017-f7dd0600-bbee-11eb-8817-83eda34bcf13.png)
-
-
-
-## 폴리글랏 프로그래밍
-
-고객관리 서비스(customer)의 시나리오인 주문상태, 배달상태 변경에 따라 고객에게 카톡메시지 보내는 기능의 구현 파트는 해당 팀이 python 을 이용하여 구현하기로 하였다. 해당 파이썬 구현체는 각 이벤트를 수신하여 처리하는 Kafka consumer 로 구현되었고 코드는 다음과 같다:
-```
-from flask import Flask
-from redis import Redis, RedisError
-from kafka import KafkaConsumer
-import os
-import socket
-
-
-# To consume latest messages and auto-commit offsets
-consumer = KafkaConsumer('fooddelivery',
-                         group_id='',
-                         bootstrap_servers=['localhost:9092'])
-for message in consumer:
-    print ("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
-                                          message.offset, message.key,
-                                          message.value))
-
-    # 카톡호출 API
-```
-
-파이선 애플리케이션을 컴파일하고 실행하기 위한 도커파일은 아래와 같다 (운영단계에서 할일인가? 아니다 여기 까지가 개발자가 할일이다. Immutable Image):
-```
-FROM python:2.7-slim
-WORKDIR /app
-ADD . /app
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
-ENV NAME World
-EXPOSE 8090
-CMD ["python", "policy-handler.py"]
-```
-
-
 ## 동기식 호출 과 Fallback 처리
 
 분석단계에서의 조건 중 하나로 주문(app)->결제(pay) 간의 호출은 동기식 일관성을 유지하는 트랜잭션으로 처리하기로 하였다. 호출 프로토콜은 이미 앞서 Rest Repository 에 의해 노출되어있는 REST 서비스를 FeignClient 를 이용하여 호출하도록 한다. 
@@ -565,6 +476,98 @@ mvn spring-boot:run
 #주문상태 확인
 http localhost:8080/orders     # 모든 주문의 상태가 "배송됨"으로 확인
 ```
+
+
+## 폴리글랏 퍼시스턴스
+
+배송 서비스(delivery)는 실시간 배송위치 추적 등 추후 지도(GIS) 기반 서비스의 확장까지 고려하여 데이터베이스를 선정하려고 한다. 
+postgres는 공간(Spatial)부분에 상당한 강점과 다양한 레퍼런스가 있어서 적합하다고 판단되어  배송(delivery)서비스의 DB는 자동생성된 DB설정인 H2에서 postgreSQL로 변경하려고 한다. 
+
+먼저, AWS에 postgreSQL 을 프리티어로 생성한다. 
+
+AWS > RDS > 데이터베이스 생성
+
+![image](https://user-images.githubusercontent.com/80744199/119250376-ad518e80-bbda-11eb-852e-6f64e76dfdad.png)
+
+생성된 모습 
+
+![image](https://user-images.githubusercontent.com/80744199/119250409-e12cb400-bbda-11eb-88c7-58725f0b603e.png)
+
+접속 허용을 위해 보안그룹을 추가하고,  인바운드 규칙에 모든TCP를 허용한다. 
+
+![image](https://user-images.githubusercontent.com/80744199/119250559-cdce1880-bbdb-11eb-8b23-fe0a668c524d.png)
+
+PgAdmin을 통해 접속가능 확인
+
+![image](https://user-images.githubusercontent.com/80744199/119250566-e0485200-bbdb-11eb-9ca5-365e3dad00a0.png)
+
+
+delivery 서비스의 postgresql dependency 추가 
+
+기존 h2 
+
+![image](https://user-images.githubusercontent.com/80744199/119251064-5e5a2800-bbdf-11eb-8b56-27c8fc3e4863.png)
+
+변경 postgreSQL
+
+![image](https://user-images.githubusercontent.com/80744199/119251052-50a4a280-bbdf-11eb-8e20-e5a7ada61ff0.png)
+
+
+delivery 서비스의 application.yml 수정 
+
+기존 설정  (H2 DB) 
+
+![image](https://user-images.githubusercontent.com/80744199/119251098-9f523c80-bbdf-11eb-9215-da643b6bafc3.png)
+ 
+변경 설정 ( postgreSQL DB ) 
+
+![image](https://user-images.githubusercontent.com/80744199/119251089-93667a80-bbdf-11eb-8327-aa8d776f2cbd.png)
+
+ 
+
+RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
+
+mvn spring-boot:run 으로 구동하여 배송서비스(delivery) 관련 테이블이 postgres에 생성된 모습
+
+![image](https://user-images.githubusercontent.com/80744199/119254017-f7dd0600-bbee-11eb-8817-83eda34bcf13.png)
+
+
+
+## 폴리글랏 프로그래밍
+
+고객관리 서비스(customer)의 시나리오인 주문상태, 배달상태 변경에 따라 고객에게 카톡메시지 보내는 기능의 구현 파트는 해당 팀이 python 을 이용하여 구현하기로 하였다. 해당 파이썬 구현체는 각 이벤트를 수신하여 처리하는 Kafka consumer 로 구현되었고 코드는 다음과 같다:
+```
+from flask import Flask
+from redis import Redis, RedisError
+from kafka import KafkaConsumer
+import os
+import socket
+
+
+# To consume latest messages and auto-commit offsets
+consumer = KafkaConsumer('fooddelivery',
+                         group_id='',
+                         bootstrap_servers=['localhost:9092'])
+for message in consumer:
+    print ("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
+                                          message.offset, message.key,
+                                          message.value))
+
+    # 카톡호출 API
+```
+
+파이선 애플리케이션을 컴파일하고 실행하기 위한 도커파일은 아래와 같다 (운영단계에서 할일인가? 아니다 여기 까지가 개발자가 할일이다. Immutable Image):
+```
+FROM python:2.7-slim
+WORKDIR /app
+ADD . /app
+RUN pip install --trusted-host pypi.python.org -r requirements.txt
+ENV NAME World
+EXPOSE 8090
+CMD ["python", "policy-handler.py"]
+```
+
+## API게이트웨이
 
 
 # 운영
