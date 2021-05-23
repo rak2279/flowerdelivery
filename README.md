@@ -571,11 +571,155 @@ CMD ["python", "policy-handler.py"]
 
 - API GW를 통하여 마이크로 서비스들의 집입점을 통일할 수 있는가?
 
+MSAEZ 모델링 도구를 통해 자동생성된 gateway 를 구동하고, spring.cloud.gateway.routes 정보를 설정하여 마이크로 서비스의 진입점을 통일한다. 
 
+gateway 서비스의 application.yml 파일 
 
+```
+  cloud:
+    gateway:
+      routes:
+        - id: order
+          uri: http://localhost:8081
+          predicates:
+            - Path=/orders/**, /menus/**/myPages/**
+        - id: payment
+          uri: http://localhost:8082
+          predicates:
+            - Path=/payments/** 
+        - id: ordermanagement
+          uri: http://localhost:8083
+          predicates:
+            - Path=/ordermanagements/**, /orderStatuses/**
+        - id: delivery
+          uri: http://localhost:8084
+          predicates:
+            - Path=/deliveries/**, /deliverystatuses/**
+```
 
+게이트웨이 포트를 활용하여 각 서비스로 접근 가능한지 확인 
+
+게이트웨이포트 8088 을 통해서    8081포트에 서비스하고 있는 주문(Order)서비스를 접근함 
+
+```
+C:\workspace\flowerdelivery>http GET localhost:8088/orders/1 "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg1OTQ1NywiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6ImlGZGswclgrR21TUVErN2xNS3ZWVGhtZFUxOD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.DdilwqGMzcVOvWg69oDcqteM3tk1W2laMDc_sdz8YHJcfD-ZIJG5N4w_pGbxpypTZSz5YlAExJiJpUYtq3dPHnWTC0L2H2BRdredFO62no43vA3QoPDtiXgdOf7BqOzpMCQs1mMY4NqteoaKiD8aE-jG64-hOPSRx_VxZJ1MKezH9g-bA89Ptqaw0Rkuw9j5LuHqTVh0NANG58hfg0HAN3Y73RWnvBHPa2jcAGJL8lu1VarIujeatBHEOsXWVBBydlft2zol3vBvZBaGRJfW7Jt8vCyjqEfIShmQf0WGvXWwlX8XH1Q77JL617_Lxzjz-3uiDsLg-kN5U2TaoVUijQ"
+HTTP/1.1 200 OK
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Type: application/hal+json;charset=UTF-8
+Date: Sun, 23 May 2021 14:06:59 GMT
+Expires: 0
+Pragma: no-cache
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/1"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/1"
+        }
+    },
+    "itemName": "cup001",
+    "itemPrice": 1000,
+    "qty": 10,
+    "storeName": "KJSHOP",
+    "userName": "LKJ"
+}
+```
 
 - 게이트웨이와 인증서버(OAuth), JWT 토큰 인증을 통하여 마이크로서비스들을 보호할 수 있는가?
+
+먼저 게이트웨이에서 JWT 인증을 하기 위에  Spring Security 관련 디펜던시를 추가한다. 
+gateway 서비스의 pom.xml 파일에 내용 추가
+```
+<!-- Add spring security -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-client</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-jose</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-resource-server</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security.oauth.boot</groupId>
+			<artifactId>spring-security-oauth2-autoconfigure</artifactId>
+		</dependency>
+```
+
+application.yml 파일에  spring security jwt 설정을 추가한다. 
+```
+spring:
+  profiles: default
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8090/.well-known/jwks.json
+```
+
+JWT ResourceServerCofiguration.java 추가 
+```
+package com.example;
+
+import org.springframework.cloud.gateway.config.GlobalCorsProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+
+@Configuration
+@EnableWebFluxSecurity
+public class ResourceServerConfiguration {
+
+    @Bean
+    SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) throws Exception {
+
+        http
+                .cors().and()
+                .csrf().disable()
+                .authorizeExchange()
+                //.pathMatchers("/orders/**","/deliveries/**","/oauth/**","/login/**","/payments/**","/ordermanagement/**").permitAll()
+                .pathMatchers("/oauth/**").permitAll()
+                .anyExchange().authenticated()
+                .and()
+                .oauth2ResourceServer()
+                .jwt()
+                ;
+
+        return http.build();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(
+            GlobalCorsProperties globalCorsProperties) {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        globalCorsProperties.getCorsConfigurations()
+                .forEach(source::registerCorsConfiguration);
+        return source;
+    }
+}
+```
 
 
 
