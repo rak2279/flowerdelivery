@@ -188,24 +188,53 @@ mvn spring-boot:run
 
 ## DDD 의 적용
 
-- 각 서비스내에 도출된 핵심 Aggregate Root 객체를 Entity 로 선언하였다: (예시는 pay 마이크로 서비스). 이때 가능한 현업에서 사용하는 언어 (유비쿼터스 랭귀지)를 그대로 사용하려고 노력했다. 하지만, 일부 구현에 있어서 영문이 아닌 경우는 실행이 불가능한 경우가 있기 때문에 계속 사용할 방법은 아닌것 같다. (Maven pom.xml, Kafka의 topic id, FeignClient 의 서비스 id 등은 한글로 식별자를 사용하는 경우 오류가 발생하는 것을 확인하였다)
 
+- Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 데이터 접근 어댑터를 개발하였는가
+
+MSA 모델링 도구 ( MSA Easy .io )를 사용하여 도출된 핵심 어그리게이트를 Entity로 선언하였다. 
+- 주문(order), 결제(payment), 주문관리(ordermanagement), 배송(delivery) 
+
+아래 코드는 주문 Entity에 대한 구현내용이다. 
 ```
-package fooddelivery;
+package flowerdelivery;
 
 import javax.persistence.*;
 import org.springframework.beans.BeanUtils;
-import java.util.List;
 
 @Entity
-@Table(name="결제이력_table")
-public class 결제이력 {
+@Table(name="Order_table")
+public class Order {
 
     @Id
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
-    private String orderId;
-    private Double 금액;
+    private String itemName;
+    private Integer qty;
+    private Long itemPrice;
+    private String storeName;
+    private String userName;
+
+    @PostPersist
+    public void onPostPersist(){
+        Ordered ordered = new Ordered();
+        BeanUtils.copyProperties(this, ordered);
+        ordered.publishAfterCommit();
+
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
+
+        flowerdelivery.external.Payment payment = new flowerdelivery.external.Payment();
+        // mappings goes here
+        OrderApplication.applicationContext.getBean(flowerdelivery.external.PaymentService.class)
+            .pay(payment);
+    }
+
+    @PreRemove
+    public void onPreRemove(){
+        OrderCancelled orderCancelled = new OrderCancelled();
+        BeanUtils.copyProperties(this, orderCancelled);
+        orderCancelled.publishAfterCommit();
+    }
 
     public Long getId() {
         return id;
@@ -214,33 +243,85 @@ public class 결제이력 {
     public void setId(Long id) {
         this.id = id;
     }
-    public String getOrderId() {
-        return orderId;
+    public String getItemName() {
+        return itemName;
     }
 
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
+    public void setItemName(String itemName) {
+        this.itemName = itemName;
     }
-    public Double get금액() {
-        return 금액;
-    }
-
-    public void set금액(Double 금액) {
-        this.금액 = 금액;
+    public Integer getQty() {
+        return qty;
     }
 
+    public void setQty(Integer qty) {
+        this.qty = qty;
+    }
+    public Long getItemPrice() {
+        return itemPrice;
+    }
+
+    public void setItemPrice(Long itemPrice) {
+        this.itemPrice = itemPrice;
+    }
+    public String getStoreName() {
+        return storeName;
+    }
+
+    public void setStoreName(String storeName) {
+        this.storeName = storeName;
+    }
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
 }
+```
+- spring Data REST 의 RestRepository 를 적용하여 JPA를 통해 별도 처리 없이 다양한 데이터 소스 유형을 활용가능하도록 하였으며,
+RDB 설정에 맞도록 Order Entity에 @Table, @Id 어노테이션을 표시하였다.
 
+OrderReository.java 구현 내용
 ```
-- Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 다양한 데이터소스 유형 (RDB or NoSQL) 에 대한 별도의 처리가 없도록 데이터 접근 어댑터를 자동 생성하기 위하여 Spring Data REST 의 RestRepository 를 적용하였다
-```
-package fooddelivery;
+package flowerdelivery;
 
 import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 
-public interface 결제이력Repository extends PagingAndSortingRepository<결제이력, Long>{
+@RepositoryRestResource(collectionResourceRel="orders", path="orders")
+public interface OrderRepository extends PagingAndSortingRepository<Order, Long>{
 }
 ```
+
+Order.java 
+```
+
+@Entity
+@Table(name="Order_table")
+public class Order {
+
+    @Id
+    @GeneratedValue(strategy=GenerationType.AUTO)
+    private Long id;
+
+```
+
+
+
+
+
+
+- [헥사고날 아키텍처] REST Inbound adaptor 이외에 gRPC 등의 Inbound Adaptor 를 추가함에 있어서 도메인 모델의 손상을 주지 않고 새로운 프로토콜에 기존 구현체를 적응시킬 수 있는가?
+
+
+
+- 분석단계에서의 유비쿼터스 랭귀지 (업무현장에서 쓰는 용어) 를 사용하여 소스코드가 서술되었는가?
+
+- 각 서비스내에 도출된 핵심 Aggregate Root 객체를 Entity 로 선언하였다: (예시는 pay 마이크로 서비스). 이때 가능한 현업에서 사용하는 언어 (유비쿼터스 랭귀지)를 그대로 사용하려고 노력했다. 하지만, 일부 구현에 있어서 영문이 아닌 경우는 실행이 불가능한 경우가 있기 때문에 계속 사용할 방법은 아닌것 같다. (Maven pom.xml, Kafka의 topic id, FeignClient 의 서비스 id 등은 한글로 식별자를 사용하는 경우 오류가 발생하는 것을 확인하였다)
+
+
 - 적용 후 REST API 의 테스트
 ```
 # app 서비스의 주문처리
