@@ -267,30 +267,37 @@ AWS > RDS > 데이터베이스 생성
 ![image](https://user-images.githubusercontent.com/80744199/119250376-ad518e80-bbda-11eb-852e-6f64e76dfdad.png)
 
 생성된 모습 
+
 ![image](https://user-images.githubusercontent.com/80744199/119250409-e12cb400-bbda-11eb-88c7-58725f0b603e.png)
 
 접속 허용을 위해 보안그룹을 추가하고,  인바운드 규칙에 모든TCP를 허용한다. 
+
 ![image](https://user-images.githubusercontent.com/80744199/119250559-cdce1880-bbdb-11eb-8b23-fe0a668c524d.png)
 
 PgAdmin을 통해 접속가능 확인
+
 ![image](https://user-images.githubusercontent.com/80744199/119250566-e0485200-bbdb-11eb-9ca5-365e3dad00a0.png)
 
 
 delivery 서비스의 postgresql dependency 추가 
 
 기존 h2 
+
 ![image](https://user-images.githubusercontent.com/80744199/119251064-5e5a2800-bbdf-11eb-8b56-27c8fc3e4863.png)
 
 변경 postgreSQL
+
 ![image](https://user-images.githubusercontent.com/80744199/119251052-50a4a280-bbdf-11eb-8e20-e5a7ada61ff0.png)
 
 
 delivery 서비스의 application.yml 수정 
 
 기존 설정  (H2 DB) 
+
 ![image](https://user-images.githubusercontent.com/80744199/119251098-9f523c80-bbdf-11eb-9215-da643b6bafc3.png)
  
 변경 설정 ( postgreSQL DB ) 
+
 ![image](https://user-images.githubusercontent.com/80744199/119251089-93667a80-bbdf-11eb-8327-aa8d776f2cbd.png)
 
  
@@ -298,6 +305,7 @@ delivery 서비스의 application.yml 수정
 RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
 
 mvn spring-boot:run 으로 구동하여 payment 관련 테이블이 postgres에 생성된 모습
+
 ![image](https://user-images.githubusercontent.com/80744199/119250994-de33c280-bbde-11eb-89af-82f634bde6a7.png)
 
 
