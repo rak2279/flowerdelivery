@@ -257,37 +257,58 @@ http localhost:8081/orders/1
 
 ## 폴리글랏 퍼시스턴스
 
-앱프런트 (app) 는 서비스 특성상 많은 사용자의 유입과 상품 정보의 다양한 콘텐츠를 저장해야 하는 특징으로 인해 RDB 보다는 Document DB / NoSQL 계열의 데이터베이스인 Mongo DB 를 사용하기로 하였다. 이를 위해 order 의 선언에는 @Entity 가 아닌 @Document 로 마킹되었으며, 별다른 작업없이 기존의 Entity Pattern 과 Repository Pattern 적용과 데이터베이스 제품의 설정 (application.yml) 만으로 MongoDB 에 부착시켰다
+배송 서비스(delivery)는 실시간 배송위치 추적 등 추후 지도(GIS) 기반 서비스의 확장까지 고려하여 데이터베이스를 선정하려고 한다. 
+postgres는 공간(Spatial)부분에 상당한 강점과 다양한 레퍼런스가 있어서 적합하다고 판단되어  배송(delivery)서비스의 DB는 자동생성된 DB설정인 H2에서 postgreSQL로 변경하려고 한다. 
 
-```
-# Order.java
+먼저, AWS에 postgreSQL 을 프리티어로 생성한다. 
 
-package fooddelivery;
+AWS > RDS > 데이터베이스 생성
 
-@Document
-public class Order {
+![image](https://user-images.githubusercontent.com/80744199/119250376-ad518e80-bbda-11eb-852e-6f64e76dfdad.png)
 
-    private String id; // mongo db 적용시엔 id 는 고정값으로 key가 자동 발급되는 필드기 때문에 @Id 나 @GeneratedValue 를 주지 않아도 된다.
-    private String item;
-    private Integer 수량;
+생성된 모습 
 
-}
+![image](https://user-images.githubusercontent.com/80744199/119250409-e12cb400-bbda-11eb-88c7-58725f0b603e.png)
+
+접속 허용을 위해 보안그룹을 추가하고,  인바운드 규칙에 모든TCP를 허용한다. 
+
+![image](https://user-images.githubusercontent.com/80744199/119250559-cdce1880-bbdb-11eb-8b23-fe0a668c524d.png)
+
+PgAdmin을 통해 접속가능 확인
+
+![image](https://user-images.githubusercontent.com/80744199/119250566-e0485200-bbdb-11eb-9ca5-365e3dad00a0.png)
 
 
-# 주문Repository.java
-package fooddelivery;
+delivery 서비스의 postgresql dependency 추가 
 
-public interface 주문Repository extends JpaRepository<Order, UUID>{
-}
+기존 h2 
 
-# application.yml
+![image](https://user-images.githubusercontent.com/80744199/119251064-5e5a2800-bbdf-11eb-8b56-27c8fc3e4863.png)
 
-  data:
-    mongodb:
-      host: mongodb.default.svc.cluster.local
-    database: mongo-example
+변경 postgreSQL
 
-```
+![image](https://user-images.githubusercontent.com/80744199/119251052-50a4a280-bbdf-11eb-8e20-e5a7ada61ff0.png)
+
+
+delivery 서비스의 application.yml 수정 
+
+기존 설정  (H2 DB) 
+
+![image](https://user-images.githubusercontent.com/80744199/119251098-9f523c80-bbdf-11eb-9215-da643b6bafc3.png)
+ 
+변경 설정 ( postgreSQL DB ) 
+
+![image](https://user-images.githubusercontent.com/80744199/119251089-93667a80-bbdf-11eb-8327-aa8d776f2cbd.png)
+
+ 
+
+RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
+
+mvn spring-boot:run 으로 구동하여 payment 관련 테이블이 postgres에 생성된 모습
+
+![image](https://user-images.githubusercontent.com/80744199/119250994-de33c280-bbde-11eb-89af-82f634bde6a7.png)
+
+
 
 ## 폴리글랏 프로그래밍
 
