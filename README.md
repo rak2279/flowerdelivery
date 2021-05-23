@@ -665,6 +665,7 @@ gateway 서비스의 pom.xml 파일에 내용 추가
 ```
 
 application.yml 파일에  spring security jwt 설정을 추가한다. 
+(인증(OAUTH)서비스는 8090 포트로 서비스 예정이다.)
 ```
 spring:
   profiles: default
@@ -720,6 +721,81 @@ public class ResourceServerConfiguration {
     }
 }
 ```
+event-storming/oauth 서비스를 flowerdelivery 프로젝트에 추가한다. 
+
+![image](https://user-images.githubusercontent.com/80744199/119264224-312c6a80-bc1d-11eb-92e3-fbb0eadc5cb0.png)
+
+인증(oauth)서비스를 구동시킨다.
+c:\workspace\flowdelivery\oauth> mvn spring-boot:run 
+
+게이트웨이 내 Spring Security 설정에 따라서 인증토큰이 없는 서비스 호출은 인증되지 않은 호출로 오류가 발생한다. 
+```
+C:\workspace\flowerdelivery>http GET http://localhost:8088/orders/1
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Expires: 0
+Pragma: no-cache
+Referrer-Policy: no-referrer
+WWW-Authenticate: Bearer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+content-length: 0
+```
+
+인증을 위해 client_credintials 방식으로  토큰을 요청한다. 
+```
+C:\workspace\flowerdelivery>http --form POST localhost:8090/oauth/token "Authorization: Basic dWVuZ2luZS1jbGllbnQ6dWVuZ2luZS1zZWNyZXQ=" grant_type=client_credentials
+HTTP/1.1 200 
+Cache-Control: no-store
+Connection: keep-alive
+Content-Type: application/json;charset=UTF-8
+Date: Sun, 23 May 2021 14:25:55 GMT
+Keep-Alive: timeout=60
+Pragma: no-cache
+Transfer-Encoding: chunked
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+
+{
+    "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg2NjM1NSwiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6Ikt0RUhTSk5xVVVtSzJYSU92bVpQanYydVJmMD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.Iah6pc7kwSY4uyjy40AJlt43vp4sLoDfnjaxhK4zr-2r30BOaqPasU8DOMWrl99BM8AlVmwwesuaxKdcJOGc89R_TrmqHbWAe3_enHXlTr3JsiXzQWzyNTTtgxNFjoP0Tn-wtUg_shirmn8UTR9DQN5N1uJk_3TswQVTPoqz-11SDepIvkT5fbdNqXAJ7rcpJXJzKv89Cr6YagU3Wp-KqhtA0-QSi3Z_qBaWzQlYjta1CqKVZE9xciCWssEFtVOpRr7Tv2vuaIFHDBE_hd7fg3wXRJ55XYl0kkaLtHqN2RW4ZqbsxAT-HoW4lJFO8jRtEaElQclzZqcJ5mbLcssiSw",
+```
+
+얻은 위 access_token 정보를 활용하여 서비스를 호출 시 정상적으로 동작한다. 
+
+```
+C:\workspace\flowerdelivery>http GET localhost:8088/orders/1 "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJyZWFkIiwid3JpdGUiLCJ0cnVzdCJdLCJjb21wYW55IjoiVWVuZ2luZSIsImV4cCI6MTYyMTg1OTQ1NywiYXV0aG9yaXRpZXMiOlsiUk9MRV9UUlVTVEVEX0NMSUVOVCIsIlJPTEVfQ0xJRU5UIl0sImp0aSI6ImlGZGswclgrR21TUVErN2xNS3ZWVGhtZFUxOD0iLCJjbGllbnRfaWQiOiJ1ZW5naW5lLWNsaWVudCJ9.DdilwqGMzcVOvWg69oDcqteM3tk1W2laMDc_sdz8YHJcfD-ZIJG5N4w_pGbxpypTZSz5YlAExJiJpUYtq3dPHnWTC0L2H2BRdredFO62no43vA3QoPDtiXgdOf7BqOzpMCQs1mMY4NqteoaKiD8aE-jG64-hOPSRx_VxZJ1MKezH9g-bA89Ptqaw0Rkuw9j5LuHqTVh0NANG58hfg0HAN3Y73RWnvBHPa2jcAGJL8lu1VarIujeatBHEOsXWVBBydlft2zol3vBvZBaGRJfW7Jt8vCyjqEfIShmQf0WGvXWwlX8XH1Q77JL617_Lxzjz-3uiDsLg-kN5U2TaoVUijQ"
+HTTP/1.1 200 OK
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Type: application/hal+json;charset=UTF-8
+Date: Sun, 23 May 2021 14:27:42 GMT
+Expires: 0
+Pragma: no-cache
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1 ; mode=block
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/1"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/1"
+        }
+    },
+    "itemName": "cup001",
+    "itemPrice": 1000,
+    "qty": 10,
+    "storeName": "KJSHOP",
+    "userName": "LKJ"
+}
+```
+
+
 
 
 
