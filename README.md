@@ -381,9 +381,9 @@ delivery 서비스의 application.yml 수정
 
 RDB -> RDB로 변경하여 Java Source 부분에는 추가 변경이 필요치 않음
 
-mvn spring-boot:run 으로 구동하여 payment 관련 테이블이 postgres에 생성된 모습
+mvn spring-boot:run 으로 구동하여 배송서비스(delivery) 관련 테이블이 postgres에 생성된 모습
 
-![image](https://user-images.githubusercontent.com/80744199/119250994-de33c280-bbde-11eb-89af-82f634bde6a7.png)
+![image](https://user-images.githubusercontent.com/80744199/119254017-f7dd0600-bbee-11eb-8817-83eda34bcf13.png)
 
 
 
