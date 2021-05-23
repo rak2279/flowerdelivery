@@ -5,6 +5,12 @@ server:
 
 spring:
   profiles: default
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8090/.well-known/jwks.json
+  
   cloud:
     gateway:
       routes:
@@ -24,6 +30,10 @@ spring:
           uri: http://localhost:8084
           predicates:
             - Path=/deliveries/**, /deliverystatuses/**
+        - id: oauth
+          uri: http://localhost:8090
+          predicates:
+            - Path=/oauth/**
       globalcors:
         corsConfigurations:
           '[/**]':
@@ -59,6 +69,11 @@ spring:
           uri: http://delivery:8080
           predicates:
             - Path=/deliveries/**, /deliverystatuses/**
+        - id: oauth
+          uri: http://oauth:8080
+          predicates:
+            - Path=/oauth/**
+
       globalcors:
         corsConfigurations:
           '[/**]':
