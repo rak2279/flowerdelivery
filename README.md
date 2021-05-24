@@ -481,7 +481,124 @@ Transfer-Encoding: chunked
 
 ```
 
-"서킷브레이커 및 fallback  미구현"
+fallback 처리 
+
+주문-결제 Req-Res 구조에 Spring Hystrix 를 사용하여 Fallback 기능을 구현 
+FeignClient 내 Fallback 옵션과 Hystrix 설정 옵션으로 구현한다. 
+먼저 PaymentService 에  feignClient fallback 옵션 및 Configuration 옵션을 추가하고 
+fallback 클래스&메소드와 Configuration 클래스를 추가한다. 
+(FeignClient 디펜던시에 nexflix Hystrix 관련 디펜던시가 추가되어 있어 별도 pom 수정은 필요하지 않는다.  ) 
+
+```
+package flowerdelivery.external;
+
+import com.netflix.hystrix.HystrixCommand;
+import com.netflix.hystrix.HystrixCommandGroupKey;
+import com.netflix.hystrix.HystrixCommandKey;
+import com.netflix.hystrix.HystrixCommandProperties;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+import feign.Feign;
+import feign.hystrix.HystrixFeign;
+import feign.hystrix.SetterFactory;
+
+
+@FeignClient(name="payment", url="http://localhost:8082", configuration=PaymentService.PaymentServiceConfiguration.class, fallback=PaymentService.PaymentServiceFallback.class)
+public interface PaymentService {
+
+    @RequestMapping(method= RequestMethod.POST, path="/payments")
+    public void pay(@RequestBody Payment payment);
+
+    @Component
+    class PaymentServiceFallback implements PaymentService {
+
+        @Override
+        public void pay(Payment payment){
+            System.out.println("★★★★★★★★★★★★★★PaymentServiceFallback works");
+        }
+    }
+
+    @Component
+    class PaymentServiceConfiguration {
+        Feign.Builder feignBuilder(){
+            SetterFactory setterFactory = (target, method) -> HystrixCommand.Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(target.name()))
+            .andCommandKey(HystrixCommandKey.Factory.asKey(Feign.configKey(target.type(), method)))
+            // 위는 groupKey와 commandKey 설정
+            // 아래는 properties 설정
+            .andCommandPropertiesDefaults(HystrixCommandProperties.defaultSetter()
+                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.SEMAPHORE)
+                .withMetricsRollingStatisticalWindowInMilliseconds(10000) // 기준시간
+                .withCircuitBreakerSleepWindowInMilliseconds(3000) // 서킷 열려있는 시간
+                .withCircuitBreakerErrorThresholdPercentage(50)) // 에러 비율 기준 퍼센트
+                ; // 최소 호출 횟수
+            return HystrixFeign.builder().setterFactory(setterFactory);
+        }        
+    }
+}
+```
+
+application.yml 파일에  feign.hystrix.enabled: true 로 활성화 시킨다. 
+
+```
+feign:
+  hystrix:
+    enabled: true
+```
+
+
+payment 서비스를 중지하고  주문 수행 시에는 오류가 발생하나, 위와 같이 fallback 기능을 활성화 후 수행 시에는 오류가 발생하지 않는다. 
+
+payment 서비스 종료 후  fallback 기능 활성화 하지 않을 경우 아래와 같이 오류가 발생한다. 
+```
+C:\workspace\flowerdelivery>http POST http://localhost:8081/orders storeName="분당꽃배달" itemName="안개꽃한다발" qty=1 itemPrice=20000 userName="이기정" 
+HTTP/1.1 500
+Connection: close
+Content-Type: application/json;charset=UTF-8
+Date: Mon, 24 May 2021 10:18:40 GMT
+Transfer-Encoding: chunked
+
+{
+    "error": "Internal Server Error",
+    "message": "Could not commit JPA transaction; nested exception is javax.persistence.RollbackException: Error while committing the transaction",
+    "path": "/orders",
+    "status": 500,
+    "timestamp": "2021-05-24T10:18:40.901+0000"
+}
+```
+
+fallback 기능 활성화 시
+```
+C:\workspace\flowerdelivery>http POST http://localhost:8081/orders storeName="분당꽃배달" itemName="안개꽃한다발" qty=1 itemPrice=20000 userName="이기정" 
+HTTP/1.1 201
+Content-Type: application/json;charset=UTF-8        
+Date: Mon, 24 May 2021 10:19:42 GMT
+Location: http://localhost:8081/orders/1
+Transfer-Encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/1"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/1"
+        }
+    },
+    "itemName": "안개꽃한다발",
+    "itemPrice": 20000,
+    "qty": 1,
+    "storeName": "분당꽃배달",
+    "userName": "이기정"
+}
+```
+
+
+
 
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
