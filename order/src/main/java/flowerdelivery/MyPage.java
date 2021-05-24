@@ -13,9 +13,11 @@ public class MyPage {
         private String storeName;
         private String itemName;
         private Integer orderQty;
-        private Long itemPrice;
+        private Integer itemPrice;
         private String orderStatus;
         private String deliveryStatus;
+        private Long orderId;
+        private String userName;
 
 
         public Long getId() {
@@ -46,11 +48,11 @@ public class MyPage {
         public void setOrderQty(Integer orderQty) {
             this.orderQty = orderQty;
         }
-        public Long getItemPrice() {
+        public Integer getItemPrice() {
             return itemPrice;
         }
 
-        public void setItemPrice(Long itemPrice) {
+        public void setItemPrice(Integer itemPrice) {
             this.itemPrice = itemPrice;
         }
         public String getOrderStatus() {
@@ -66,6 +68,20 @@ public class MyPage {
 
         public void setDeliveryStatus(String deliveryStatus) {
             this.deliveryStatus = deliveryStatus;
+        }
+        public Long getOrderId() {
+            return orderId;
+        }
+
+        public void setOrderId(Long orderId) {
+            this.orderId = orderId;
+        }
+        public String getUserName() {
+            return userName;
+        }
+
+        public void setUserName(String userName) {
+            this.userName = userName;
         }
 
 }

@@ -1,4 +1,3 @@
-
 package flowerdelivery;
 
 public class OrderCancelled extends AbstractEvent {
@@ -7,6 +6,7 @@ public class OrderCancelled extends AbstractEvent {
     private String storeName;
     private String itemName;
     private Integer qty;
+    private String orderStatus;
 
     public Long getId() {
         return id;
@@ -36,5 +36,11 @@ public class OrderCancelled extends AbstractEvent {
     public void setQty(Integer qty) {
         this.qty = qty;
     }
-}
+    public String getOrderStatus() {
+        return orderStatus;
+    }
 
+    public void setOrderStatus(String orderStatus) {
+        this.orderStatus = orderStatus;
+    }
+}

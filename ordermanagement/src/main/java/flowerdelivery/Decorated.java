@@ -1,4 +1,3 @@
-
 package flowerdelivery;
 
 public class Decorated extends AbstractEvent {
@@ -8,6 +7,7 @@ public class Decorated extends AbstractEvent {
     private String storeName;
     private String itemName;
     private Integer qty;
+    private String ordermanagementStatus;
 
     public Long getId() {
         return id;
@@ -44,5 +44,11 @@ public class Decorated extends AbstractEvent {
     public void setQty(Integer qty) {
         this.qty = qty;
     }
-}
+    public String getOrdermanagementStatus() {
+        return ordermanagementStatus;
+    }
 
+    public void setOrdermanagementStatus(String ordermanagementStatus) {
+        this.ordermanagementStatus = ordermanagementStatus;
+    }
+}

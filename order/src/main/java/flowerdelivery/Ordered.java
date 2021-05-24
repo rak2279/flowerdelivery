@@ -6,10 +6,9 @@ public class Ordered extends AbstractEvent {
     private String storeName;
     private String itemName;
     private Integer qty;
-
-    public Ordered(){
-        super();
-    }
+    private String userName;
+    private Integer itemPrice;
+    private String orderStatus;
 
     public Long getId() {
         return id;
@@ -38,5 +37,26 @@ public class Ordered extends AbstractEvent {
 
     public void setQty(Integer qty) {
         this.qty = qty;
+    }
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+    public Integer getItemPrice() {
+        return itemPrice;
+    }
+
+    public void setItemPrice(Integer itemPrice) {
+        this.itemPrice = itemPrice;
+    }
+    public String getOrderStatus() {
+        return orderStatus;
+    }
+
+    public void setOrderStatus(String orderStatus) {
+        this.orderStatus = orderStatus;
     }
 }

@@ -1,10 +1,9 @@
-
 package flowerdelivery;
 
 public class DeliveryCanceled extends AbstractEvent {
 
     private Long id;
-    private Long orderID;
+    private Long orderId;
     private Long ordermanagementId;
     private String deliveryStatus;
 
@@ -16,11 +15,11 @@ public class DeliveryCanceled extends AbstractEvent {
         this.id = id;
     }
     public Long getOrderId() {
-        return orderID;
+        return orderId;
     }
 
-    public void setOrderId(Long orderID) {
-        this.orderID = orderID;
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
     }
     public Long getOrdermanagementId() {
         return ordermanagementId;
@@ -37,4 +36,3 @@ public class DeliveryCanceled extends AbstractEvent {
         this.deliveryStatus = deliveryStatus;
     }
 }
-
