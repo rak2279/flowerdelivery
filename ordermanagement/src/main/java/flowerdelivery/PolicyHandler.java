@@ -20,8 +20,8 @@ public class PolicyHandler{
 
         if(paid.isMe()){
             System.out.println("##### listener AcceptRequest : " + paid.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("paid 주문 발생");
+            System.out.println("주문 번호: "+ paid.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -29,8 +29,8 @@ public class PolicyHandler{
 
         if(paymentCanceled.isMe()){
             System.out.println("##### listener AcceptCancel : " + paymentCanceled.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("paymentCanceled 주문 발생");
+            System.out.println("주문 번호: "+ paymentCanceled.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -38,8 +38,8 @@ public class PolicyHandler{
 
         if(deliveryCompleted.isMe()){
             System.out.println("##### listener UpdateOrdermanagementStatus : " + deliveryCompleted.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("deliveryCompleted 주문 발생");
+            System.out.println("주문 번호: "+ deliveryCompleted.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -47,8 +47,8 @@ public class PolicyHandler{
 
         if(departedForDelivery.isMe()){
             System.out.println("##### listener UpdateOrdermanagementStatus : " + departedForDelivery.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("DepartedForDelivery 주문 발생");
+            System.out.println("주문 번호: "+ departedForDelivery.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -56,8 +56,8 @@ public class PolicyHandler{
 
         if(deliveryCanceled.isMe()){
             System.out.println("##### listener UpdateOrdermanagementStatus : " + deliveryCanceled.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("deliveryCanceled 주문 발생");
+            System.out.println("주문 번호: "+ deliveryCanceled.getOrderId());
         }
     }
 

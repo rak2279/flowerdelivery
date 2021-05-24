@@ -26,6 +26,12 @@ public class Order {
         // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
 
         flowerdelivery.external.Payment payment = new flowerdelivery.external.Payment();
+        payment.setOrderId(this.getId());
+        payment.setItemPrice(this.getItemPrice());
+        payment.setItemName(this.getItemName());
+        payment.setQty(this.getQty());
+        payment.setStoreName(this.getStoreName());
+        
         // mappings goes here
         OrderApplication.applicationContext.getBean(flowerdelivery.external.PaymentService.class)
             .pay(payment);

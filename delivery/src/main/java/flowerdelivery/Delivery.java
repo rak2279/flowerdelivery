@@ -23,16 +23,18 @@ public class Delivery {
     private String deliveryStatus;
 
     @PostPersist
+    @PostUpdate
     public void onPostPersist(){
-        DepartedForDelivery departedForDelivery = new DepartedForDelivery();
-        BeanUtils.copyProperties(this, departedForDelivery);
-        departedForDelivery.publishAfterCommit();
-
-
-        DeliveryCompleted deliveryCompleted = new DeliveryCompleted();
-        BeanUtils.copyProperties(this, deliveryCompleted);
-        deliveryCompleted.publishAfterCommit();
-
+    	if(this.deliveryStatus.equals("departed")) {
+    		 DepartedForDelivery departedForDelivery = new DepartedForDelivery();
+    	     BeanUtils.copyProperties(this, departedForDelivery);
+    	     departedForDelivery.publishAfterCommit();
+    	}
+    	if(this.deliveryStatus.equals("completed")) {
+    		DeliveryCompleted deliveryCompleted = new DeliveryCompleted();
+            BeanUtils.copyProperties(this, deliveryCompleted);
+            deliveryCompleted.publishAfterCommit();
+    	}
 
     }
 

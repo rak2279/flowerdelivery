@@ -20,8 +20,8 @@ public class PolicyHandler{
 
         if(decorated.isMe()){
             System.out.println("##### listener DeliveryRequest : " + decorated.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("decorated 주문 발생");
+            System.out.println("주문 번호 : "+decorated.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -29,8 +29,8 @@ public class PolicyHandler{
 
         if(registrationCanceled.isMe()){
             System.out.println("##### listener DeliveryCancel : " + registrationCanceled.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("registrationCanceled 주문 발생");
+            System.out.println("주문 번호 : "+ registrationCanceled.getId());
         }
     }    
 

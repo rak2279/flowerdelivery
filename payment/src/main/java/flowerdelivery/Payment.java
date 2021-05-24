@@ -2,8 +2,6 @@ package flowerdelivery;
 
 import javax.persistence.*;
 import org.springframework.beans.BeanUtils;
-import java.util.List;
-import java.util.Date;
 
 @Entity
 @Table(name="Payment_table")
@@ -20,13 +18,15 @@ public class Payment {
     private Integer qty;
 
     @PostPersist
+    @PostUpdate
     public void onPostPersist(){
-        Paid paid = new Paid();
-        BeanUtils.copyProperties(this, paid);
-        paid.publishAfterCommit();
-
-
+    		if(this.paymentStatus!=null) {
+    			Paid paid = new Paid();
+       	     BeanUtils.copyProperties(this, paid);
+       	     paid.publishAfterCommit();       
+    		}
     }
+    
 
     @PreRemove
     public void onPreRemove(){

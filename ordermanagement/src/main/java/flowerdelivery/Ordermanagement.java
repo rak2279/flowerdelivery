@@ -21,16 +21,21 @@ public class Ordermanagement {
     private String userName;
 
     @PostPersist
+    @PostUpdate
     public void onPostPersist(){
-        Decorated decorated = new Decorated();
-        BeanUtils.copyProperties(this, decorated);
-        decorated.publishAfterCommit();
-
-
-        Received received = new Received();
-        BeanUtils.copyProperties(this, received);
-        received.publishAfterCommit();
-
+    	
+    	if(this.ordermanagementStatus.equals("decorated")) {
+    		 Decorated decorated = new Decorated();
+    		 decorated.setOrderId(this.orderId);
+    	     BeanUtils.copyProperties(this, decorated);
+    	     decorated.publishAfterCommit();
+    	}
+    	if(this.ordermanagementStatus.equals("received")) {
+    		Received received = new Received();
+    		received.setOrderId(this.orderId);
+            BeanUtils.copyProperties(this, received);
+            received.publishAfterCommit();
+    	}
 
     }
 

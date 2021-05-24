@@ -20,8 +20,8 @@ public class PolicyHandler{
 
         if(deliveryCanceled.isMe()){
             System.out.println("##### listener UpdateOrderStatus : " + deliveryCanceled.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("deliveryCanceled 주문 발생");
+            System.out.println("주문 번호 : "+deliveryCanceled.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -29,8 +29,8 @@ public class PolicyHandler{
 
         if(departedForDelivery.isMe()){
             System.out.println("##### listener UpdateOrderStatus : " + departedForDelivery.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("departedForDelivery 주문 발생");
+            System.out.println("주문 번호 : "+ departedForDelivery.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -38,8 +38,8 @@ public class PolicyHandler{
 
         if(deliveryCompleted.isMe()){
             System.out.println("##### listener UpdateOrderStatus : " + deliveryCompleted.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("deliveryCompleted 주문 발생");
+            System.out.println("주문 번호 : "+ deliveryCompleted.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -47,8 +47,8 @@ public class PolicyHandler{
 
         if(forciblyCanceled.isMe()){
             System.out.println("##### listener UpdateOrderStatus : " + forciblyCanceled.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("forciblyCanceled 주문 발생");
+            System.out.println("주문 번호 : "+ forciblyCanceled.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -56,8 +56,8 @@ public class PolicyHandler{
 
         if(received.isMe()){
             System.out.println("##### listener UpdateOrderStatus : " + received.toJson());
-            System.out.println();
-            System.out.println();
+            System.out.println("Received 주문 발생");
+            System.out.println("주문 번호 : "+ received.getOrderId());
         }
     }
 
