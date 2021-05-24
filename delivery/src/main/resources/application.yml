@@ -20,6 +20,8 @@ spring:
         show_sql: true
         format_sql: true
         ddl-auto: update
+        temp:
+          use_jdbc_metadata_defaults: false
   cloud:
     stream:
       kafka:
