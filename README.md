@@ -481,7 +481,147 @@ Transfer-Encoding: chunked
 
 ```
 
-"서킷브레이커 및 fallback  미구현"
+fallback 처리 
+
+주문-결제 Req-Res 구조에 Spring Hystrix 를 사용하여 Fallback 기능을 구현 
+FeignClient 내 Fallback 옵션과 Hystrix 설정 옵션으로 구현한다. 
+먼저 PaymentService 에  feignClient fallback 옵션 및 Configuration 옵션을 추가하고 
+fallback 클래스&메소드와 Configuration 클래스를 추가한다. 
+(FeignClient 디펜던시에 nexflix Hystrix 관련 디펜던시가 추가되어 있어 별도 pom 수정은 필요하지 않는다.  ) 
+
+```
+package flowerdelivery.external;
+
+import com.netflix.hystrix.HystrixCommand;
+import com.netflix.hystrix.HystrixCommandGroupKey;
+import com.netflix.hystrix.HystrixCommandKey;
+import com.netflix.hystrix.HystrixCommandProperties;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+import feign.Feign;
+import feign.hystrix.HystrixFeign;
+import feign.hystrix.SetterFactory;
+
+
+@FeignClient(name="payment", url="http://localhost:8082", configuration=PaymentService.PaymentServiceConfiguration.class, fallback=PaymentService.PaymentServiceFallback.class)
+public interface PaymentService {
+
+    @RequestMapping(method= RequestMethod.POST, path="/payments")
+    public void pay(@RequestBody Payment payment);
+
+    @Component
+    class PaymentServiceFallback implements PaymentService {
+
+        @Override
+        public void pay(Payment payment){
+            System.out.println("★★★★★★★★★★★★★★PaymentServiceFallback works");   // fallback 메소드 작동 테스트
+        }
+    }
+
+    @Component
+    class PaymentServiceConfiguration {
+        Feign.Builder feignBuilder(){
+            SetterFactory setterFactory = (target, method) -> HystrixCommand.Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(target.name()))
+            .andCommandKey(HystrixCommandKey.Factory.asKey(Feign.configKey(target.type(), method)))
+            // 위는 groupKey와 commandKey 설정
+            // 아래는 properties 설정
+            .andCommandPropertiesDefaults(HystrixCommandProperties.defaultSetter()
+                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.SEMAPHORE)
+                .withMetricsRollingStatisticalWindowInMilliseconds(10000) // 기준시간
+                .withCircuitBreakerSleepWindowInMilliseconds(3000) // 서킷 열려있는 시간
+                .withCircuitBreakerErrorThresholdPercentage(50)) // 에러 비율 기준 퍼센트
+                ; // 최소 호출 횟수
+            return HystrixFeign.builder().setterFactory(setterFactory);
+        }        
+    }
+}
+```
+
+application.yml 파일에  feign.hystrix.enabled: true 로 활성화 시킨다. 
+
+```
+feign:
+  hystrix:
+    enabled: true
+```
+
+
+payment 서비스를 중지하고  주문 수행 시에는 오류가 발생하나, 위와 같이 fallback 기능을 활성화 후 수행 시에는 오류가 발생하지 않는다. 
+
+payment 서비스 종료 후  fallback 기능 활성화 하지 않을 경우 아래와 같이 오류가 발생한다. 
+```
+C:\workspace\flowerdelivery>http POST http://localhost:8081/orders storeName="분당꽃배달" itemName="안개꽃한다발" qty=1 itemPrice=20000 userName="이기정" 
+HTTP/1.1 500
+Connection: close
+Content-Type: application/json;charset=UTF-8
+Date: Mon, 24 May 2021 10:18:40 GMT
+Transfer-Encoding: chunked
+
+{
+    "error": "Internal Server Error",
+    "message": "Could not commit JPA transaction; nested exception is javax.persistence.RollbackException: Error while committing the transaction",
+    "path": "/orders",
+    "status": 500,
+    "timestamp": "2021-05-24T10:18:40.901+0000"
+}
+```
+
+fallback 기능 활성화 시  payment서비스가 구동되지 않았지만 아래와 같이 오류문구가 발생하지 않는다.  
+
+```
+C:\workspace\flowerdelivery>http POST http://localhost:8081/orders storeName="분당꽃배달" itemName="안개꽃한다발" qty=1 itemPrice=20000 userName="이기정" 
+HTTP/1.1 201
+Content-Type: application/json;charset=UTF-8        
+Date: Mon, 24 May 2021 10:19:42 GMT
+Location: http://localhost:8081/orders/1
+Transfer-Encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/1"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/1"
+        }
+    },
+    "itemName": "안개꽃한다발",
+    "itemPrice": 20000,
+    "qty": 1,
+    "storeName": "분당꽃배달",
+    "userName": "이기정"
+}
+```
+
+```
+2021-05-24 19:19:41.219  INFO 36216 --- [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 18 ms
+Hibernate: 
+    call next value for hibernate_sequence
+Hibernate: 
+    insert
+    into
+        order_table
+        (item_name, item_price, qty, store_name, user_name, id)
+    values
+        (?, ?, ?, ?, ?, ?)
+2021-05-24 19:19:41.366 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [1] as [VARCHAR] - [안개꽃한다발]
+2021-05-24 19:19:41.367 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [2] as [BIGINT] - [20000]
+2021-05-24 19:19:41.368 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [3] as [INTEGER] - [1]
+2021-05-24 19:19:41.368 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [4] as [VARCHAR] - [분당꽃배달]
+2021-05-24 19:19:41.369 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [5] as [VARCHAR] - [이기정]
+2021-05-24 19:19:41.369 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [6] as [BIGINT] - [1]
+2021-05-24 19:19:41.581 DEBUG 36216 --- [strix-payment-1] o.s.c.openfeign.support.SpringEncoder    : Writing [flowerdelivery.external.Payment@3ad63bc4] using [org.springframework.http.converter.json.MappingJackson2HttpMessageConverter@5ccd6bd4]
+★★★★★★★★★★★★★★PaymentServiceFallback works   <<=  // fallback 메소드 작동 테스트
+2021-05-24 19:19:42.592 DEBUG 36216 --- [nio-8081-exec-2] o.s.c.s.m.DirectWithAttributesChannel    : preSend on channel 'event-out', message: GenericMessage [payload={"eventType":"Ordered","timestamp":"20210524191941","id":1,"storeName":"분당꽃배달","itemName":"안개꽃한다발","qty":1,"userName":"이기정","itemPrice":null,"orderStatus":null,"me":true}, headers={contentType=application/json, id=8aa33ad5-01a3-0212-c9b4-3dc2f8d2b1b6, timestamp=1621851582592}]
+```
+위와 같이 로그로 남긴 fallback 작동 메시지가 display 된다. 
+
+
 
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
@@ -1113,8 +1253,111 @@ transfer-encoding: chunked
 
 ## CI/CD 설정
 
-
 각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였으며, pipeline build script 는 각 프로젝트 폴더 이하에 cloudbuild.yml 에 포함되었다.
+
+## 배포 
+
+**AWS IAM User Access Key 생성**
+
+IAM > 액세스 관리 > 사용자 > 보안 자격 증명
+
+액세스 키 만들기 > Access Key, Private Key 별도 보관
+
+**AWS ECR 생성**
+
+
+ECR > 리포지토리 생성
+
+서비스 별 리포지토리 생성
+
+052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-delivery
+
+052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-gateway
+
+052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-order
+
+052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-ordermanagement
+
+052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-payment
+
+
+**클러스터 생성 EKS**
+
+eksctl create cluster --name user03-flowerdelivery --version 1.17 --nodegroup-name standard-workers --node-type t3.medium --nodes 4 --nodes-min 1 --nodes-max 4
+
+
+**클러스터 토큰 가져오기**
+
+aws eks --region ap-northeast-2 update-kubeconfig --name user03-flowerdelivery
+
+
+**ECR 로그인**
+
+docker login --username AWS -p $(aws ecr get-login-password --region ap-northeast-2) 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/
+
+**Maven 빌드**
+
+mvn package -Dmaven.test.skip=true
+
+**도커라이징**
+
+docker build -t 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-delivery:latest .
+
+docker build -t 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-gateway:latest .
+
+docker build -t 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-order:latest .
+
+docker build -t 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-order:latest .
+
+docker build -t 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-payment:latest .
+
+docker build -t 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-oauth:latest .
+
+**ECR 도커 이미지 푸시**
+
+docker push 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-delivery:latest
+
+docker push 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-gateway:latest
+
+docker push 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-order:latest
+
+docker push 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-ordermanagement:latest
+
+docker push 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-payment:latest
+
+docker push 052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-oauth:latest
+
+
+**컨테이너라이징**
+
+<디플로이 생성>
+
+kubectl create deploy delivery --image=052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-delivery:latest
+
+kubectl expose deploy delivery --type=ClusterIP --port=8080
+
+kubectl create deploy gateway--image=052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-gateway:latest
+
+kubectl expose deploy gateway --type=LoadBalancer --port=8080
+
+kubectl create deploy order --image=052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-order:latest
+
+kubectl expose deploy order --type=ClusterIP --port=8080
+
+kubectl create deploy ordermanagement --image=052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-ordermanagement:latest
+
+kubectl expose deploy ordermanagement --type=ClusterIP --port=8080
+
+kubectl create deploy payment --image=052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-payment:latest
+
+kubectl expose deploy payment --type=ClusterIP" --port=8080
+
+kubectl create deploy oauth --image=052937454741.dkr.ecr.ap-northeast-2.amazonaws.com/user03-oauth :latest
+
+kubectl expose deploy oauth --type=ClusterIP --port=8080
+
+
+
 
 
 ## 동기식 호출 / 서킷 브레이킹 / 장애격리
