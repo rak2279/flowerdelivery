@@ -2,13 +2,19 @@ package flowerdelivery;
 
 import javax.persistence.*;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.List;
+import java.util.Optional;
 import java.util.Date;
 
 @Entity
 @Table(name="Ordermanagement_table")
 public class Ordermanagement {
 
+	@Autowired
+	OrdermanagementRepository ordermanagementRepository;
+	
     @Id
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
@@ -21,21 +27,22 @@ public class Ordermanagement {
     private String userName;
 
     @PostPersist
-    @PostUpdate
     public void onPostPersist(){
     	
-    	if(this.ordermanagementStatus.equals("decorated")) {
-    		 Decorated decorated = new Decorated();
-    		 decorated.setOrderId(this.orderId);
-    	     BeanUtils.copyProperties(this, decorated);
-    	     decorated.publishAfterCommit();
-    	}
-    	if(this.ordermanagementStatus.equals("received")) {
-    		Received received = new Received();
-    		received.setOrderId(this.orderId);
-            BeanUtils.copyProperties(this, received);
-            received.publishAfterCommit();
-    	}
+//    	Optional <Ordermanagement> ordermange=ordermanagementRepository.findByOrderId(this.orderId);
+//    	System.out.println("hihihihihi"+ordermange.get());
+//    	if(this.ordermanagementStatus.equals("decorated")) {
+//    		 Decorated decorated = new Decorated();
+//    		 decorated.setOrderId(this.orderId);
+//    	     BeanUtils.copyProperties(this, decorated);
+//    	     decorated.publishAfterCommit();
+//    	}
+//    	if(this.ordermanagementStatus.equals("received")) {
+//    		Received received = new Received();
+//    		received.setOrderId(this.orderId);
+//            BeanUtils.copyProperties(this, received);
+//            received.publishAfterCommit();
+//    	}
 
     }
 

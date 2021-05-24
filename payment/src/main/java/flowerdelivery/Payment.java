@@ -18,14 +18,11 @@ public class Payment {
     private Integer qty;
 
     @PostPersist
-    @PostUpdate
     public void onPostPersist(){
     		
     		Paid paid = new Paid();
-    		//paid.setPaymentStatus("paid");
-       	    BeanUtils.copyProperties(this, paid);
-       	    paid.publishAfterCommit();       
-    		
+    		BeanUtils.copyProperties(this, paid);
+    		paid.publishAfterCommit();
     }
     
 

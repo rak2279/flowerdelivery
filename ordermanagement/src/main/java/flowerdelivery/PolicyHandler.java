@@ -31,18 +31,16 @@ public class PolicyHandler{
             System.out.println("##### listener AcceptRequest : " + paid.toJson());
             System.out.println("paid 주문 발생");
             System.out.println("주문 번호: "+ paid.getOrderId());
-            Ordermanagement ordermanagement= new Ordermanagement();
+           Ordermanagement ordermanagement= new Ordermanagement();
            
            
-//            ordermanagement.setOrderId(paid.getOrderId());
-           ordermanagement.setOrdermanagementStatus(null);
+            ordermanagement.setOrderId(paid.getOrderId());
+           ordermanagement.setOrdermanagementStatus("null");
             ordermanagement.setPaymentStatus(paid.getPaymentStatus());
             ordermanagement.setQty(paid.getQty());
             ordermanagement.setStoreName(paid.getStoreName());
            ordermanagement.setUserName(null);
            ordermanagement.setItemName("Flower");
-            System.out.println("adding " +ordermanagement);
-//            orderManagementRepository.save(ordermanagement);
             orderManagementRepository.save(ordermanagement);
         }
     }
