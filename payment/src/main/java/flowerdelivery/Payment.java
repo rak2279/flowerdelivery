@@ -20,11 +20,12 @@ public class Payment {
     @PostPersist
     @PostUpdate
     public void onPostPersist(){
-    		if(this.paymentStatus!=null) {
-    			Paid paid = new Paid();
-       	     BeanUtils.copyProperties(this, paid);
-       	     paid.publishAfterCommit();       
-    		}
+    		
+    		Paid paid = new Paid();
+    		//paid.setPaymentStatus("paid");
+       	    BeanUtils.copyProperties(this, paid);
+       	    paid.publishAfterCommit();       
+    		
     }
     
 

@@ -31,6 +31,7 @@ public class Order {
         payment.setItemName(this.getItemName());
         payment.setQty(this.getQty());
         payment.setStoreName(this.getStoreName());
+        payment.setPaymentStatus("paid");
         
         // mappings goes here
         OrderApplication.applicationContext.getBean(flowerdelivery.external.PaymentService.class)

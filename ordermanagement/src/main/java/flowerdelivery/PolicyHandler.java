@@ -3,18 +3,27 @@ package flowerdelivery;
 import flowerdelivery.config.kafka.KafkaProcessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.annotation.StreamListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 public class PolicyHandler{
+	@Autowired(required=true)
+	private OrdermanagementRepository orderManagementRepository;
+	
     @StreamListener(KafkaProcessor.INPUT)
     public void onStringEventListener(@Payload String eventString){
 
     }
-
+    
     @StreamListener(KafkaProcessor.INPUT)
     public void wheneverPaid_AcceptRequest(@Payload Paid paid){
 
@@ -22,6 +31,19 @@ public class PolicyHandler{
             System.out.println("##### listener AcceptRequest : " + paid.toJson());
             System.out.println("paid 주문 발생");
             System.out.println("주문 번호: "+ paid.getOrderId());
+            Ordermanagement ordermanagement= new Ordermanagement();
+           
+           
+//            ordermanagement.setOrderId(paid.getOrderId());
+           ordermanagement.setOrdermanagementStatus(null);
+            ordermanagement.setPaymentStatus(paid.getPaymentStatus());
+            ordermanagement.setQty(paid.getQty());
+            ordermanagement.setStoreName(paid.getStoreName());
+           ordermanagement.setUserName(null);
+           ordermanagement.setItemName("Flower");
+            System.out.println("adding " +ordermanagement);
+//            orderManagementRepository.save(ordermanagement);
+            orderManagementRepository.save(ordermanagement);
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
