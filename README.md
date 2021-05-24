@@ -519,7 +519,7 @@ public interface PaymentService {
 
         @Override
         public void pay(Payment payment){
-            System.out.println("★★★★★★★★★★★★★★PaymentServiceFallback works");
+            System.out.println("★★★★★★★★★★★★★★PaymentServiceFallback works");   // fallback 메소드 작동 테스트
         }
     }
 
@@ -571,7 +571,8 @@ Transfer-Encoding: chunked
 }
 ```
 
-fallback 기능 활성화 시
+fallback 기능 활성화 시  payment서비스가 구동되지 않았지만 아래와 같이 오류문구가 발생하지 않는다.  
+
 ```
 C:\workspace\flowerdelivery>http POST http://localhost:8081/orders storeName="분당꽃배달" itemName="안개꽃한다발" qty=1 itemPrice=20000 userName="이기정" 
 HTTP/1.1 201
@@ -597,6 +598,28 @@ Transfer-Encoding: chunked
 }
 ```
 
+```
+2021-05-24 19:19:41.219  INFO 36216 --- [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 18 ms
+Hibernate: 
+    call next value for hibernate_sequence
+Hibernate: 
+    insert
+    into
+        order_table
+        (item_name, item_price, qty, store_name, user_name, id)
+    values
+        (?, ?, ?, ?, ?, ?)
+2021-05-24 19:19:41.366 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [1] as [VARCHAR] - [안개꽃한다발]
+2021-05-24 19:19:41.367 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [2] as [BIGINT] - [20000]
+2021-05-24 19:19:41.368 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [3] as [INTEGER] - [1]
+2021-05-24 19:19:41.368 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [4] as [VARCHAR] - [분당꽃배달]
+2021-05-24 19:19:41.369 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [5] as [VARCHAR] - [이기정]
+2021-05-24 19:19:41.369 TRACE 36216 --- [nio-8081-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [6] as [BIGINT] - [1]
+2021-05-24 19:19:41.581 DEBUG 36216 --- [strix-payment-1] o.s.c.openfeign.support.SpringEncoder    : Writing [flowerdelivery.external.Payment@3ad63bc4] using [org.springframework.http.converter.json.MappingJackson2HttpMessageConverter@5ccd6bd4]
+★★★★★★★★★★★★★★PaymentServiceFallback works   <<=  // fallback 메소드 작동 테스트
+2021-05-24 19:19:42.592 DEBUG 36216 --- [nio-8081-exec-2] o.s.c.s.m.DirectWithAttributesChannel    : preSend on channel 'event-out', message: GenericMessage [payload={"eventType":"Ordered","timestamp":"20210524191941","id":1,"storeName":"분당꽃배달","itemName":"안개꽃한다발","qty":1,"userName":"이기정","itemPrice":null,"orderStatus":null,"me":true}, headers={contentType=application/json, id=8aa33ad5-01a3-0212-c9b4-3dc2f8d2b1b6, timestamp=1621851582592}]
+```
+위와 같이 로그로 남긴 fallback 작동 메시지가 display 된다. 
 
 
 
