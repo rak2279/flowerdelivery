@@ -486,88 +486,334 @@ Transfer-Encoding: chunked
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
 
+- 카프카를 이용하여 PubSub 으로 하나 이상의 서비스가 연동되었는가?
 
-결제가 이루어진 후에 상점시스템으로 이를 알려주는 행위는 동기식이 아니라 비 동기식으로 처리하여 상점 시스템의 처리를 위하여 결제주문이 블로킹 되지 않아도록 처리한다.
- 
-- 이를 위하여 결제이력에 기록을 남긴 후에 곧바로 결제승인이 되었다는 도메인 이벤트를 카프카로 송출한다(Publish)
- 
+
+- Correlation-key: 각 이벤트 건 (메시지)가 어떠한 폴리시를 처리할때 어떤 건에 연결된 처리건인지를 구별하기 위한 Correlation-key 연결을 제대로 구현 하였는가?
+
+
+- Message Consumer 마이크로서비스가 장애상황에서 수신받지 못했던 기존 이벤트들을 다시 수신받아 처리하는가?
+
+
+- Scaling-out: Message Consumer 마이크로서비스의 Replica 를 추가했을때 중복없이 이벤트를 수신할 수 있는가
+
+
+- CQRS: Materialized View 를 구현하여, 타 마이크로서비스의 데이터 원본에 접근없이(Composite 서비스나 조인SQL 등 없이) 도 내 서비스의 화면 구성과 잦은 조회가 가능한가?
+
+![image](https://user-images.githubusercontent.com/80744199/119308095-96c53900-bca7-11eb-840c-4d12883e0ec7.png)
+
+주문 / 결제 / 주문관리 / 배송 서비스의 전체 현황 및 상태 조회를 제공하기 위해 주문 서비스 내에 MyPage View를 모델링 하였다. 
+
+MyPage View 의 어트리뷰트는 다음과 같으며 
+
+![image](https://user-images.githubusercontent.com/80744199/119308246-c70cd780-bca7-11eb-9d5e-0da2f2d3755d.png)
+
+
+주문이 생성될때 MyPage 데이터도 생성되어 "결제완료됨, 주문취소됨, 강제취소됨, 등록취소됨, 주문접수됨, 꽃장식완료됨, 주문거절됨, 배달취소됨, 배달출발함, 배달완료됨" 의 이벤트에 따라 주문상태, 배송상태를 업데이트하는 모델링을 진행하였으며,
+
+MSAEZ 모델링 도구 내 View CQRS 설정 패널 샘플 
+
+![image](https://user-images.githubusercontent.com/80744199/119308604-35519a00-bca8-11eb-8562-d1642e9cc6ba.png)
+
+자동생성된 소스 샘플은 아래와 같다. 
+
+MyPage.java   엔티티 클래스 
 ```
-package fooddelivery;
+package flowerdelivery;
+
+import javax.persistence.*;
+import java.util.List;
 
 @Entity
-@Table(name="결제이력_table")
-public class 결제이력 {
+@Table(name="MyPage_table")
+public class MyPage {
 
- ...
-    @PrePersist
-    public void onPrePersist(){
-        결제승인됨 결제승인됨 = new 결제승인됨();
-        BeanUtils.copyProperties(this, 결제승인됨);
-        결제승인됨.publish();
-    }
+        @Id
+        @GeneratedValue(strategy=GenerationType.AUTO)
+        private Long id;
+        private String storeName;
+        private String itemName;
+        private Integer orderQty;
+        private Integer itemPrice;
+        private String orderStatus;
+        private String deliveryStatus;
+        private Long orderId;
+        private String userName;
+
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+        public String getStoreName() {
+            return storeName;
+        }
+
+        public void setStoreName(String storeName) {
+            this.storeName = storeName;
+        }
+        public String getItemName() {
+            return itemName;
+        }
+
+        public void setItemName(String itemName) {
+            this.itemName = itemName;
+        }
+        public Integer getOrderQty() {
+            return orderQty;
+        }
+
+        public void setOrderQty(Integer orderQty) {
+            this.orderQty = orderQty;
+        }
+        public Integer getItemPrice() {
+            return itemPrice;
+        }
+
+        public void setItemPrice(Integer itemPrice) {
+            this.itemPrice = itemPrice;
+        }
+        public String getOrderStatus() {
+            return orderStatus;
+        }
+
+        public void setOrderStatus(String orderStatus) {
+            this.orderStatus = orderStatus;
+        }
+        public String getDeliveryStatus() {
+            return deliveryStatus;
+        }
+
+        public void setDeliveryStatus(String deliveryStatus) {
+            this.deliveryStatus = deliveryStatus;
+        }
+        public Long getOrderId() {
+            return orderId;
+        }
+
+        public void setOrderId(Long orderId) {
+            this.orderId = orderId;
+        }
+        public String getUserName() {
+            return userName;
+        }
+
+        public void setUserName(String userName) {
+            this.userName = userName;
+        }
+
+}
+
+```
+
+MyPageRepository.java    퍼시스턴스 
+```
+package flowerdelivery;
+
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface MyPageRepository extends CrudRepository<MyPage, Long> {
+
+    List<MyPage> findByOrderId(Long orderId);
+
+    void deleteByOrderId(Long orderId);
 
 }
 ```
-- 상점 서비스에서는 결제승인 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다:
 
+MyPageViewHandler.java 
+View 핸들러에는 이벤트 수신 처리부가 있으며  생성 및 변경에 대한 이벤트 코드를 첨부한다. 
+
+주문생성 시 처리되는 이벤트 
 ```
-package fooddelivery;
+@StreamListener(KafkaProcessor.INPUT)
+    public void whenOrdered_then_CREATE_1 (@Payload Ordered ordered) {
+        try {
 
-...
-
-@Service
-public class PolicyHandler{
-
-    @StreamListener(KafkaProcessor.INPUT)
-    public void whenever결제승인됨_주문정보받음(@Payload 결제승인됨 결제승인됨){
-
-        if(결제승인됨.isMe()){
-            System.out.println("##### listener 주문정보받음 : " + 결제승인됨.toJson());
-            // 주문 정보를 받았으니, 요리를 슬슬 시작해야지..
-            
+            //if (!ordered.validate()) return;
+            System.out.println("Order Created");
+            if(ordered.isMe()){
+                // view 객체 생성
+                MyPage myPage = new MyPage();
+                // view 객체에 이벤트의 Value 를 set 함
+                myPage.setOrderId(ordered.getId());
+                myPage.setStoreName(ordered.getStoreName());
+                myPage.setItemName(ordered.getItemName());
+                myPage.setOrderQty(ordered.getQty());
+                myPage.setItemPrice(ordered.getItemPrice());
+                myPage.setUserName(ordered.getUserName());
+                // view 레파지 토리에 save
+                myPageRepository.save(myPage);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
+```
 
+업데이트 이벤트 
+```
+@StreamListener(KafkaProcessor.INPUT)
+    public void whenPaid_then_UPDATE_1(@Payload Paid paid) {
+        try {
+            //if (!paid.validate()) return;
+                // view 객체 조회
+
+                if(paid.isMe()){
+                    Optional<MyPage> myPageOptional = myPageRepository.findById(paid.getOrderId());
+                    if( myPageOptional.isPresent()) {
+                        MyPage myPage = myPageOptional.get();
+                        // view 객체에 이벤트의 eventDirectValue 를 set 함
+                            myPage.setOrderStatus(paid.getPaymentStatus());
+                        // view 레파지 토리에 save
+                        myPageRepository.save(myPage);
+                    }
+
+                }
+            
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+```
+
+CQRS에 대한 테스트는 아래와 같다. 
+
+MyPage  CQRS처리를 위해  주문, 결제, 주문관리, 배송과 별개로  조회를 위한 MyPage_table  테이블이 생성되어 있으며, 
+
+주문생성 시 아래와 같이 정상 등록이 되며 
+```
+C:\workspace\flowerdelivery>http POST http://localhost:8081/orders storeName=KJSHOP itemName="장미 한바구니" qty=1 itemPrice=50000 userName=LKJ
+HTTP/1.1 201
+Content-Type: application/json;charset=UTF-8        
+Date: Mon, 24 May 2021 07:04:31 GMT
+Location: http://localhost:8081/orders/1
+Transfer-Encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://localhost:8081/orders/1"
+        },
+        "self": {
+            "href": "http://localhost:8081/orders/1"
+        }
+    },
+    "itemName": "장미 한바구니",
+    "itemPrice": 50000,
+    "qty": 1,
+    "storeName": "KJSHOP",
+    "userName": "LKJ"
 }
 
+``` 
+
+MyPage CQRS 결과는 아래와 같다. 
 ```
-실제 구현을 하자면, 카톡 등으로 점주는 노티를 받고, 요리를 마친후, 주문 상태를 UI에 입력할테니, 우선 주문정보를 DB에 받아놓은 후, 이후 처리는 해당 Aggregate 내에서 하면 되겠다.:
-  
+C:\workspace\flowerdelivery>http http://localhost:8081/myPages
+HTTP/1.1 200 
+Content-Type: application/hal+json;charset=UTF-8
+Date: Mon, 24 May 2021 07:05:18 GMT
+Transfer-Encoding: chunked
+
+{
+    "_embedded": {
+        "myPages": [
+            {
+                "_links": {
+                    "myPage": {
+                        "href": "http://localhost:8081/myPages/2"
+                    },
+                    "self": {
+                        "href": "http://localhost:8081/myPages/2"
+                    }
+                },
+                "deliveryStatus": null,
+                "itemName": "장미 한바구니",
+                "itemPrice": null,
+                "orderId": 1,
+                "orderQty": 1,
+                "orderStatus": null,
+                "storeName": "KJSHOP",
+                "userName": "LKJ"
+            }
+        ]
+    },
+    "_links": {
+        "profile": {
+            "href": "http://localhost:8081/profile/myPages"
+        },
+        "search": {
+            "href": "http://localhost:8081/myPages/search"
+        },
+        "self": {
+            "href": "http://localhost:8081/myPages"
+        }
+    }
+}
 ```
-  @Autowired 주문관리Repository 주문관리Repository;
-  
-  @StreamListener(KafkaProcessor.INPUT)
-  public void whenever결제승인됨_주문정보받음(@Payload 결제승인됨 결제승인됨){
 
-      if(결제승인됨.isMe()){
-          카톡전송(" 주문이 왔어요! : " + 결제승인됨.toString(), 주문.getStoreId());
 
-          주문관리 주문 = new 주문관리();
-          주문.setId(결제승인됨.getOrderId());
-          주문관리Repository.save(주문);
-      }
-  }
-
+주문 취소 시에는 
+```
+C:\workspace\flowerdelivery>http DELETE http://localhost:8081/orders/1
+HTTP/1.1 204 
+Date: Mon, 24 May 2021 07:05:57 GMT
 ```
 
-상점 시스템은 주문/결제와 완전히 분리되어있으며, 이벤트 수신에 따라 처리되기 때문에, 상점시스템이 유지보수로 인해 잠시 내려간 상태라도 주문을 받는데 문제가 없다:
+
+MyPage CQRS도 주문취소 이벤트에 대한 처리( 주문상태 : OrderCancelled 로 변경) 를 통해 같이 변경된다. 
 ```
-# 상점 서비스 (store) 를 잠시 내려놓음 (ctrl+c)
+C:\workspace\flowerdelivery>http http://localhost:8081/myPages
+HTTP/1.1 200 
+Content-Type: application/hal+json;charset=UTF-8
+Date: Mon, 24 May 2021 07:10:40 GMT
+Transfer-Encoding: chunked
 
-#주문처리
-http localhost:8081/orders item=통닭 storeId=1   #Success
-http localhost:8081/orders item=피자 storeId=2   #Success
-
-#주문상태 확인
-http localhost:8080/orders     # 주문상태 안바뀜 확인
-
-#상점 서비스 기동
-cd 상점
-mvn spring-boot:run
-
-#주문상태 확인
-http localhost:8080/orders     # 모든 주문의 상태가 "배송됨"으로 확인
+{
+    "_embedded": {
+        "myPages": [
+            {
+                "_links": {
+                    "myPage": {
+                        "href": "http://localhost:8081/myPages/2"
+                    },
+                    "self": {
+                        "href": "http://localhost:8081/myPages/2"
+                    }
+                },
+                "deliveryStatus": null,
+                "itemName": "장미 한바구니",
+                "itemPrice": null,
+                "orderId": 1,
+                "orderQty": 1,
+                "orderStatus": "OrderCancelled",
+                "storeName": "KJSHOP",
+                "userName": "LKJ"
+            }
+        ]
+    },
+    "_links": {
+        "profile": {
+            "href": "http://localhost:8081/profile/myPages"
+        },
+        "search": {
+            "href": "http://localhost:8081/myPages/search"
+        },
+        "self": {
+            "href": "http://localhost:8081/myPages"
+        }
+    }
+}
 ```
+
+
 
 
 ## 폴리글랏 퍼시스턴스
