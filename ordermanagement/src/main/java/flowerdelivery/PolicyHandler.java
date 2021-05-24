@@ -40,7 +40,7 @@ public class PolicyHandler{
             ordermanagement.setQty(paid.getQty());
             ordermanagement.setStoreName(paid.getStoreName());
            ordermanagement.setUserName(null);
-           ordermanagement.setItemName("Flower");
+           
             orderManagementRepository.save(ordermanagement);
         }
     }
@@ -51,6 +51,10 @@ public class PolicyHandler{
             System.out.println("##### listener AcceptCancel : " + paymentCanceled.toJson());
             System.out.println("paymentCanceled 주문 발생");
             System.out.println("주문 번호: "+ paymentCanceled.getOrderId());
+            Ordermanagement ordermanagement= new Ordermanagement();
+            ordermanagement.setOrderId(paymentCanceled.getOrderId());
+            ordermanagement.setPaymentStatus("paymentCanceled");
+            orderManagementRepository.save(ordermanagement);
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -60,6 +64,10 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrdermanagementStatus : " + deliveryCompleted.toJson());
             System.out.println("deliveryCompleted 주문 발생");
             System.out.println("주문 번호: "+ deliveryCompleted.getOrderId());
+            Ordermanagement ordermanagement= new Ordermanagement();
+            ordermanagement.setOrderId(deliveryCompleted.getOrderId());
+            ordermanagement.setOrdermanagementStatus("deliveryCompleted");
+            orderManagementRepository.save(ordermanagement);
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -69,6 +77,10 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrdermanagementStatus : " + departedForDelivery.toJson());
             System.out.println("DepartedForDelivery 주문 발생");
             System.out.println("주문 번호: "+ departedForDelivery.getOrderId());
+            Ordermanagement ordermanagement= new Ordermanagement();
+            ordermanagement.setOrderId(departedForDelivery.getOrderId());
+            ordermanagement.setOrdermanagementStatus("DepartedForDelivery");
+            orderManagementRepository.save(ordermanagement);
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -78,6 +90,10 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrdermanagementStatus : " + deliveryCanceled.toJson());
             System.out.println("deliveryCanceled 주문 발생");
             System.out.println("주문 번호: "+ deliveryCanceled.getOrderId());
+            Ordermanagement ordermanagement= new Ordermanagement();
+            ordermanagement.setOrderId(deliveryCanceled.getOrderId());
+            ordermanagement.setOrdermanagementStatus("deliveryCanceled");
+            orderManagementRepository.save(ordermanagement);
         }
     }
 

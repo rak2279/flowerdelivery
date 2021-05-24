@@ -10,6 +10,10 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PolicyHandler{
+	
+	@Autowired(required=true)
+	private OrderRepository orderRepository;
+	
     @StreamListener(KafkaProcessor.INPUT)
     public void onStringEventListener(@Payload String eventString){
 
@@ -22,6 +26,7 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrderStatus : " + deliveryCanceled.toJson());
             System.out.println("deliveryCanceled 주문 발생");
             System.out.println("주문 번호 : "+deliveryCanceled.getOrderId());
+            orderRepository.deleteById(deliveryCanceled.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -31,6 +36,9 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrderStatus : " + departedForDelivery.toJson());
             System.out.println("departedForDelivery 주문 발생");
             System.out.println("주문 번호 : "+ departedForDelivery.getOrderId());
+            Order order= new Order();
+            order.setId(departedForDelivery.getOrderId());
+            orderRepository.save(order);
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -40,6 +48,9 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrderStatus : " + deliveryCompleted.toJson());
             System.out.println("deliveryCompleted 주문 발생");
             System.out.println("주문 번호 : "+ deliveryCompleted.getOrderId());
+            Order order= new Order();
+            order.setId(deliveryCompleted.getOrderId());
+            orderRepository.save(order);
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -49,6 +60,7 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrderStatus : " + forciblyCanceled.toJson());
             System.out.println("forciblyCanceled 주문 발생");
             System.out.println("주문 번호 : "+ forciblyCanceled.getOrderId());
+            orderRepository.deleteById(forciblyCanceled.getOrderId());
         }
     }
     @StreamListener(KafkaProcessor.INPUT)
@@ -58,6 +70,9 @@ public class PolicyHandler{
             System.out.println("##### listener UpdateOrderStatus : " + received.toJson());
             System.out.println("Received 주문 발생");
             System.out.println("주문 번호 : "+ received.getOrderId());
+            Order order= new Order();
+            order.setId(received.getOrderId());
+            orderRepository.save(order);
         }
     }
 
