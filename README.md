@@ -628,14 +628,59 @@ Hibernate:
 
 - 카프카를 이용하여 PubSub 으로 하나 이상의 서비스가 연동되었는가?
 
+메시지 브로커로 카프카를 이용하였고,  결제 - 주문관리 서비스 간에서는  결제됨 이벤트를  / 주문관리 - 배달 서비스 간에는 데코레이션됨 이벤트 등을 Pub/Sub 관계로 구현하였다. 
+
+아래는 결제됨 이벤트를 카프카를 통해 연계받는 코드 내용이다. 
+
+Payment 서비스에서는 Post(생성)이벤트에서 Paid() 이벤트 발생시킴
+```
+public class Payment {
+    @PostPersist
+    public void onPostPersist(){
+    		
+    		Paid paid = new Paid();
+    		BeanUtils.copyProperties(this, paid);
+    		paid.publishAfterCommit();
+    }
+```
+
+ordermanagement 서비스에서는 카프카 리스너를 통해 Paid 이벤트를 수신 받아서 이후 처리함
+```
+@Service
+public class PolicyHandler{
+	@StreamListener(KafkaProcessor.INPUT)
+	    public void wheneverPaid_AcceptRequest(@Payload Paid paid){
+		if(paid.isMe()){
+		    System.out.println("##### listener AcceptRequest : " + paid.toJson());
+		    System.out.println("paid 주문 발생");
+		    System.out.println("주문 번호: "+ paid.getOrderId());
+		    Ordermanagement ordermanagement= new Ordermanagement();
+
+		    ordermanagement.setOrderId(paid.getOrderId());
+		    ordermanagement.setOrdermanagementStatus("null");
+		    ordermanagement.setPaymentStatus(paid.getPaymentStatus());
+		    ordermanagement.setQty(paid.getQty());
+		    ordermanagement.setStoreName(paid.getStoreName());
+		    ordermanagement.setUserName(null);           
+		    orderManagementRepository.save(ordermanagement);
+		}
+	    }
+```
 
 - Correlation-key: 각 이벤트 건 (메시지)가 어떠한 폴리시를 처리할때 어떤 건에 연결된 처리건인지를 구별하기 위한 Correlation-key 연결을 제대로 구현 하였는가?
+
+MSAez 모델링 도구를 활용하여 각 서비스의 이벤트와 폴리시간의 연결을 pub/sub 점선으로 표현하였으며, 이를 코드 자동생성하여 Correlation -key 연결을 활용하였다. 
 
 
 - Message Consumer 마이크로서비스가 장애상황에서 수신받지 못했던 기존 이벤트들을 다시 수신받아 처리하는가?
 
 
+
+
 - Scaling-out: Message Consumer 마이크로서비스의 Replica 를 추가했을때 중복없이 이벤트를 수신할 수 있는가
+
+
+
 
 
 - CQRS: Materialized View 를 구현하여, 타 마이크로서비스의 데이터 원본에 접근없이(Composite 서비스나 조인SQL 등 없이) 도 내 서비스의 화면 구성과 잦은 조회가 가능한가?
