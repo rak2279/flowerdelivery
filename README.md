@@ -1245,10 +1245,10 @@ transfer-encoding: chunked
 ```
 
 AWS External_IP 으로 호출 시 얻은 위 access_token 정보를 활용하여 서비스를 호출 시 정상적으로 동작한다. 
-## Access Token 추출
+Access Token 추출
 ![image](https://user-images.githubusercontent.com/80744147/119437397-ffb8b980-bd58-11eb-841e-f50729d7d2c7.png)
 
-## 정상 접속 확인
+정상 접속 확인
 ![image](https://user-images.githubusercontent.com/80744147/119437436-13fcb680-bd59-11eb-8e82-71716dff2939.png)
 
 
